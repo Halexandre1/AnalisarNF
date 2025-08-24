@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- CORREÇÃO: Adiciona Content Security Policy para permitir o script do Tesseract.js no GitHub Pages -->
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://cdn.jsdelivr.net; worker-src 'self' blob:;">
+  <!-- CORREÇÃO: CSP ajustado para permitir script inline e workers do CDN -->
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net;">
   <title>Extrator NFS-e com Controle Manual</title>
   <!-- Adiciona a biblioteca Tesseract.js para OCR -->
   <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
@@ -137,7 +137,6 @@
             </div>
           </details>
 
-          <!-- CORREÇÃO: Elemento de avisos adicionado de volta -->
           <div class="label" style="margin-top:8px">Avisos</div>
           <ul id="avisos" class="muted" style="margin-top:4px; padding-left: 20px;"></ul>
 
@@ -151,7 +150,6 @@
     const $$ = (sel) => Array.from(document.querySelectorAll(sel));
     const SETTINGS_KEY = 'nfseExtractorSettings_v7_manual';
     
-    // Estado global para guardar os dados extraídos
     let extractedData = null;
     let manualSimplesNacional = null;
 
@@ -272,9 +270,7 @@
 
     function generateAIPrompt(result) {
         const { valores } = result;
-        // Prioriza o valor manual, se existir. Senão, usa o automático.
         const simples_nacional = manualSimplesNacional !== null ? manualSimplesNacional : result.simples_nacional_auto;
-
         const valorTotalFmt = valores.valor_total ? fmtBRL(valores.valor_total) : "[valor não encontrado]";
         
         const retencoes = [];
@@ -304,7 +300,6 @@
       if (!extractedData) return;
       const { valores, simples_nacional_auto } = extractedData;
       
-      // Renderiza KPIs
       $('#kpiTotal').textContent = fmtBRL(valores.valor_total);
       $('#kpiLiquido').textContent = fmtBRL(valores.valor_liquido);
       $('#kpiISS').textContent = fmtBRL(valores.retencoes.iss);
@@ -312,11 +307,9 @@
       $('#kpiCSLL').textContent = fmtBRL(valores.retencoes.csll);
       $('#kpiPIS').textContent = fmtBRL(valores.retencoes.pis);
       
-      // Atualiza o seletor manual
       const finalSimplesStatus = manualSimplesNacional !== null ? manualSimplesNacional : simples_nacional_auto;
       updateSimplesButtons(finalSimplesStatus);
 
-      // Gera e exibe o prompt
       $('#output').textContent = generateAIPrompt(extractedData);
       
       const ul = $('#avisos');
@@ -370,7 +363,7 @@
 
       $('#btnExtrair').addEventListener('click', () => {
         extractedData = extractAll($('#input').value);
-        manualSimplesNacional = null; // Reseta o manual ao extrair novo texto
+        manualSimplesNacional = null; 
         render();
       });
       $('#btnLimpar').addEventListener('click', () => {
@@ -405,7 +398,6 @@
           el.addEventListener('keyup', saveSettings);
       });
 
-      // Event listeners para o seletor manual
       $$('.btn-choice').forEach(btn => {
         btn.addEventListener('click', () => {
             const value = btn.dataset.value;
@@ -413,7 +405,7 @@
             else if (value === 'false') manualSimplesNacional = false;
             else manualSimplesNacional = null;
             
-            render(); // Re-renderiza com a nova seleção manual
+            render();
         });
       });
     }
@@ -421,7 +413,6 @@
     document.addEventListener('DOMContentLoaded', () => {
       loadSettings();
       setupEventListeners();
-      // Inicializa a renderização com estado vazio
       extractedData = extractAll('');
       render();
     });
