@@ -3,419 +3,295 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- CORREÇÃO: CSP ajustado para permitir script inline e workers do CDN -->
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net;">
-  <title>Extrator NFS-e com Controle Manual</title>
-  <!-- Adiciona a biblioteca Tesseract.js para OCR -->
-  <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+  <title>Extrator NFS-e — OCR + Extração + Prompt</title>
+  <!-- OCR (Tesseract.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
-    :root{
-      --bg:#0b1220;--card:#121a2b;--muted:#8ea0c9;--accent:#5cc8ff;--ok:#18c28e;--warn:#ffb02e;--err:#ff6b6b;--border:#223151;
-    }
-    html,body{height:100%;}
-    body{margin:0;background:linear-gradient(180deg,#0b1220,#0c1426 60%,#0b1220);color:#e6eefc;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;}
-    .container{max-width:1100px;margin:32px auto;padding:0 16px;}
-    .title{font-size:clamp(20px,3.5vw,32px);font-weight:800;letter-spacing:.2px;display:flex;align-items:center;gap:10px}
-    .badge{font-size:12px;background:linear-gradient(90deg,#112345,#1b2e52);color:#b7c7ef;border:1px solid var(--border);padding:6px 10px;border-radius:999px}
-    .card{background:linear-gradient(180deg,#111a2e,#0f182a);border:1px solid var(--border);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:16px}
-    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
-    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    textarea,input,button,select{font:inherit}
-    
-    #inputArea { border: 2px dashed var(--border); border-radius: 12px; padding: 10px; background-color: #0c1526; transition: background-color 0.2s, border-color 0.2s; }
-    #inputArea.dragover { border-color: var(--accent); background-color: #1a2947; }
-    #inputArea p { text-align: center; color: var(--muted); margin: 10px 0; pointer-events: none; }
-    #inputArea p strong { color: var(--accent); cursor: pointer; }
-    textarea{width:100%;min-height:200px;background:transparent;color:#e7f0ff;border:none;border-radius:12px;padding:12px 14px;line-height:1.4;outline:none;resize:vertical;}
-    
-    .btn{background:linear-gradient(180deg,#1e2a47,#17233e);border:1px solid var(--border);color:#e7f0ff;border-radius:12px;padding:10px 14px;font-weight:600;cursor:pointer;transition:.15s}
-    .btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.25)}
-    .btn.secondary{background:#0e172a}
-    .btn.ghost{background:transparent;border-color:#2a3b63}
-    .btn.small{padding:7px 10px;border-radius:10px;font-size:13px}
-    .pill{border:1px dashed #2a3b63;background:#0c1427;color:#b7c7ef;padding:8px 10px;border-radius:10px}
-    .label{font-size:12px;color:#a9bbeb;}
-    .kpi{display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:10px;margin-top:10px}
-    .kpi .box{background:#0b1427;border:1px solid var(--border);border-radius:14px;padding:10px 12px}
-    .kpi .box h4{margin:0 0 4px 0;color:#bcd0ff;font-weight:700;font-size:12px;letter-spacing:.2px}
-    .kpi .box .v{font-feature-settings:"tnum" on,"lnum" on; font-variant-numeric:tabular-nums; font-size:16px}
-    pre{white-space:pre-wrap;word-wrap:break-word;background:#0b1423;border:1px solid var(--border);border-radius:12px;padding:12px; line-height: 1.5;}
-    .out{min-height:180px}
-    details{background:#0c1526;border:1px solid var(--border);border-radius:12px;padding:10px}
-    summary{cursor:pointer;font-weight:700;color:#c6d6ff}
-    .muted{color:#9fb2e7}
-    .right-col{display:flex;flex-direction:column;gap:12px}
-    
-    #ocrStatus { font-size: 12px; color: var(--muted); margin-top: 8px; height: 20px; display:flex; align-items:center; gap: 8px;}
-    progress { width: 150px; accent-color: var(--accent); }
-
-    /* Estilos para o seletor manual do Simples Nacional */
-    .manual-selector { background:#0b1427; border:1px solid var(--border); border-radius:14px; padding:10px 12px; }
-    .manual-selector h4 { margin:0 0 8px 0; color:#bcd0ff; font-weight:700; font-size:12px; letter-spacing:.2px; }
-    .btn-group { display: flex; gap: 6px; }
-    .btn-group .btn-choice { flex: 1; padding: 6px; font-size: 12px; font-weight: 600; border-radius: 8px; background-color: #17233e; border: 1px solid var(--border); color: var(--muted); cursor: pointer; text-align: center; transition: all 0.2s; }
-    .btn-group .btn-choice.active.sim { background-color: var(--ok); border-color: var(--ok); color: #fff; box-shadow: 0 0 10px rgba(24, 194, 142, 0.5); }
-    .btn-group .btn-choice.active.nao { background-color: var(--warn); border-color: var(--warn); color: #fff; box-shadow: 0 0 10px rgba(255, 176, 46, 0.5); }
-    .btn-group .btn-choice.active.ind { background-color: var(--err); border-color: var(--err); color: #fff; }
-
+    :root{ --bg:#0b1220; --card:#111a2e; --muted:#8ea0c9; --accent:#5cc8ff; --ok:#18c28e; --warn:#ffb02e; --err:#ff6b6b; --border:#223151; }
+    html,body{height:100%}
+    body{margin:0;background:#0b1220;color:#e6eefc;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+    .container{max-width:1100px;margin:24px auto;padding:0 16px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:14px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    textarea{width:100%;min-height:160px;background:#0c1526;color:#e7f0ff;border:none;border-radius:12px;padding:12px 14px;line-height:1.4}
+    .btn{background:#1e2a47;border:1px solid var(--border);color:#e7f0ff;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
+    .btn.ghost{background:transparent}
+    .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:8px}
+    .kpi .box{background:#0b1427;border:1px solid var(--border);border-radius:12px;padding:10px}
+    .kpi .box h4{margin:0 0 6px;color:#bcd0ff;font-size:12px}
+    .kpi .v{font-feature-settings:'tnum' on,'lnum' on;font-variant-numeric:tabular-nums}
+    pre.out{white-space:pre-wrap;background:#0b1423;border:1px solid var(--border);border-radius:12px;padding:12px;min-height:120px}
+    .toggle{background:#0b1427;border:1px solid var(--border);border-radius:12px;padding:10px}
+    .toggle h4{margin:0 0 6px;color:#bcd0ff;font-size:12px}
+    .btn-group{display:flex;gap:6px}
+    .btn-choice{flex:1;text-align:center;padding:6px;border-radius:8px;background:#17233e;border:1px solid var(--border);color:var(--muted);cursor:pointer}
+    .btn-choice.active.sim{background:var(--ok);border-color:var(--ok);color:#fff;box-shadow:0 0 12px rgba(24,194,142,.45)}
+    .btn-choice.active.nao{background:var(--warn);border-color:var(--warn);color:#fff;box-shadow:0 0 12px rgba(255,176,46,.45)}
+    .btn-choice.active.ind{background:var(--err);border-color:var(--err);color:#fff}
+    #dropZone{border:2px dashed var(--border);border-radius:12px;padding:12px;text-align:center;background:#0c1526;cursor:pointer}
+    #dropZone.dragover{border-color:var(--accent);background:#132344}
+    #ocrStatus{font-size:12px;color:var(--muted);min-height:22px;margin-top:6px}
+    .label{font-size:12px;color:#a9bbeb;margin-top:8px}
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="title">🧾 Extrator <span class="badge">NFS-e · Cole a imagem e gere um prompt</span></div>
+    <div class="card">
+      <div id="dropZone">Cole (Ctrl+V), arraste aqui ou clique para selecionar a imagem da NFS-e</div>
+      <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/gif" style="display:none" />
+      <div id="ocrStatus" aria-live="polite"></div>
 
-    <div class="card" style="margin-top:14px">
-      <div class="row" style="justify-content:space-between">
-        <div class="label"><strong>Cole a imagem (print)</strong>, arraste ou <strong id="selectLink" style="color:var(--accent); cursor:pointer;">selecione o arquivo</strong>.</div>
-        <div class="row">
-          <button id="btnExemplo" class="btn small ghost" type="button">Usar texto de exemplo</button>
-          <button id="btnLimpar" class="btn small secondary" type="button">Limpar</button>
-          <button id="btnExtrair" class="btn small" type="button">Extrair do Texto</button>
+      <div class="label">Texto (você pode editar antes de extrair)</div>
+      <textarea id="input" placeholder="O texto extraído aparecerá aqui..."></textarea>
+
+      <div class="label">Observações (opcional: entra no prompt, ex.: descrição do serviço)</div>
+      <textarea id="obs" placeholder="Ex.: serviço referente a banho do cachorro"></textarea>
+
+      <div class="row" style="margin-top:8px">
+        <button id="btnExtrair" class="btn">Extrair Dados</button>
+        <button id="btnExemplo" class="btn ghost">Usar Exemplo</button>
+        <button id="btnCopiarPrompt" class="btn ghost">Copiar Prompt</button>
+        <button id="btnBaixarPrompt" class="btn ghost">Baixar Prompt</button>
+      </div>
+    </div>
+
+    <div class="kpi">
+      <div class="box"><h4>Valor total</h4><div id="kpiTotal" class="v">—</div></div>
+      <div class="box"><h4>Valor líquido</h4><div id="kpiLiquido" class="v">—</div></div>
+      <div class="box"><h4>ISS (retido)</h4><div id="kpiISS" class="v">—</div></div>
+      <div class="box"><h4>IRRF</h4><div id="kpiIRRF" class="v">—</div></div>
+      <div class="box"><h4>CSLL</h4><div id="kpiCSLL" class="v">—</div></div>
+      <div class="box"><h4>PIS</h4><div id="kpiPIS" class="v">—</div></div>
+      <div class="box"><h4>COFINS</h4><div id="kpiCOFINS" class="v">—</div></div>
+      <div class="box"><h4>INSS</h4><div id="kpiINSS" class="v">—</div></div>
+      <div class="box"><h4>ISS devido</h4><div id="kpiISSDev" class="v">—</div></div>
+      <div class="box"><h4>Base de cálculo</h4><div id="kpiBase" class="v">—</div></div>
+      <div class="box"><h4>Alíquota (%)</h4><div id="kpiAliq" class="v">—</div></div>
+      <div class="box"><h4>CNAE</h4><div id="kpiCNAE" class="v">—</div></div>
+      <div class="box" style="grid-column:1/-1"><h4>Atividade / Código do serviço</h4><div id="kpiAtividade" class="v">—</div></div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <div class="toggle" style="flex:1">
+        <h4>Simples Nacional</h4>
+        <div class="btn-group">
+          <div class="btn-choice sim" data-key="simples" data-value="true">Sim</div>
+          <div class="btn-choice nao" data-key="simples" data-value="false">Não</div>
+          <div class="btn-choice ind" data-key="simples" data-value="null">?</div>
         </div>
       </div>
-      
-      <div id="inputArea">
-        <p>Cole (Ctrl+V), arraste a imagem aqui ou <strong id="selectLink2">clique para selecionar</strong></p>
-        <textarea id="input" placeholder="O texto da imagem aparecerá aqui para edição..."></textarea>
-      </div>
-      <input type="file" id="fileInput" accept="image/*" style="display:none;" />
-      
-      <div id="ocrStatus"></div>
-
-      <div class="grid" style="margin-top:14px">
-        <div class="left-col">
-          <div class="label">Prompt Gerado para IA</div>
-          <pre id="output" class="out" aria-live="polite"></pre>
-          <div class="row">
-            <button id="btnCopiar" class="btn small" type="button">Copiar Prompt</button>
-            <button id="btnDownload" class="btn small ghost" type="button">Baixar Prompt</button>
-          </div>
-        </div>
-        <div class="right-col">
-          <div class="label">Campos detectados</div>
-          <div class="kpi">
-            <div class="box"><h4>Valor total</h4><div id="kpiTotal" class="v">—</div></div>
-            <div class="box"><h4>Valor líquido</h4><div id="kpiLiquido" class="v">—</div></div>
-            <div class="box"><h4>ISS</h4><div id="kpiISS" class="v">—</div></div>
-            <div class="box"><h4>IRRF</h4><div id="kpiIRRF" class="v">—</div></div>
-            <div class="box"><h4>CSLL</h4><div id="kpiCSLL" class="v">—</div></div>
-            <div class="box"><h4>PIS</h4><div id="kpiPIS" class="v">—</div></div>
-          </div>
-          
-          <!-- Seletor manual para Simples Nacional -->
-          <div class="manual-selector">
-            <h4>Simples Nacional</h4>
-            <div class="btn-group">
-              <div class="btn-choice sim" data-value="true">Sim</div>
-              <div class="btn-choice nao" data-value="false">Não</div>
-              <div class="btn-choice ind active" data-value="null">?</div>
-            </div>
-          </div>
-
-          <details>
-            <summary>Configurações (sinônimos & regras)</summary>
-            <div class="muted" style="margin:8px 0">Adapte rótulos. Suas alterações são salvas automaticamente.</div>
-            <div>
-              <div class="label">Rótulos — Valor total</div>
-              <input id="labelsTotal" style="width:100%" class="pill setting" value="valor total,total dos serviços,valor total do serviço,valor bruto,total geral"/>
-            </div>
-            <div style="margin-top:8px">
-              <div class="label">Rótulos — Valor líquido</div>
-              <input id="labelsLiquido" style="width:100%" class="pill setting" value="valor líquido,valor liquido,valor líquido a receber,líquido a receber,total líquido"/>
-            </div>
-            <div style="margin-top:8px" class="grid" >
-              <div><div class="label">Rótulos — ISS</div><input id="labelsISS" style="width:100%" class="pill setting" value="iss retido,issqn retido,valor do iss retido,valor do iss"/></div>
-              <div><div class="label">Rótulos — IRRF</div><input id="labelsIRRF" style="width:100%" class="pill setting" value="irrf retido,irrf,ir retido"/></div>
-            </div>
-             <div style="margin-top:8px" class="grid" >
-              <div><div class="label">Rótulos — CSLL</div><input id="labelsCSLL" style="width:100%" class="pill setting" value="csll retida,csll"/></div>
-              <div><div class="label">Rótulos — PIS/PASEP</div><input id="labelsPIS" style="width:100%" class="pill setting" value="pis,pis/pasep"/></div>
-            </div>
-            <div style="margin-top:8px" class="grid" >
-              <div><div class="label">Rótulos — COFINS</div><input id="labelsCOFINS" style="width:100%" class="pill setting" value="cofins,cofins retido"/></div>
-              <div><div class="label">Rótulos — INSS</div><input id="labelsINSS" style="width:100%" class="pill setting" value="inss,inss retido"/></div>
-            </div>
-          </details>
-
-          <div class="label" style="margin-top:8px">Avisos</div>
-          <ul id="avisos" class="muted" style="margin-top:4px; padding-left: 20px;"></ul>
-
+      <div class="toggle" style="flex:1">
+        <h4>Condomínio</h4>
+        <div class="btn-group">
+          <div class="btn-choice sim" data-key="condominio" data-value="true">Sim</div>
+          <div class="btn-choice nao" data-key="condominio" data-value="false">Não</div>
+          <div class="btn-choice ind" data-key="condominio" data-value="null">?</div>
         </div>
       </div>
     </div>
+
+    <div class="label" style="margin-top:10px">Prompt Gerado</div>
+    <pre id="output" class="out"></pre>
+
+    <details>
+      <summary>🧪 Testes rápidos</summary>
+      <div class="row"><button id="btnRunTests" class="btn ghost">Executar</button><span id="testsSummary" class="label"></span></div>
+      <pre id="testsLog" class="out" style="min-height:60px"></pre>
+    </details>
   </div>
 
   <script>
-    const $ = (sel) => document.querySelector(sel);
-    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-    const SETTINGS_KEY = 'nfseExtractorSettings_v7_manual';
-    
-    let extractedData = null;
-    let manualSimplesNacional = null;
+    const $ = s=>document.querySelector(s);
+    const $$ = s=>Array.from(document.querySelectorAll(s));
 
-    async function preprocessImage(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const scaleFactor = 2.5;
-            canvas.width = img.width * scaleFactor;
-            canvas.height = img.height * scaleFactor;
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            for (let i = 0; i < data.length; i += 4) {
-              const avg = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-              data[i] = data[i + 1] = data[i + 2] = avg;
-            }
-            ctx.putImageData(imageData, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-          };
-          img.onerror = reject;
-          img.src = event.target.result;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+    let manual = { simples:null, condominio:null };
+    let lastData = null;
+
+    // ===== Util =====
+    const fmtBRL = n => (n==null||isNaN(n))? '—' : n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+    const normalize = str => (str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+    function parseCurrency(raw){ if(!raw) return null; let s=String(raw).replace(/R\$\s?/gi,'').replace(/\s/g,''); const hasComma=/,\d{2}$/.test(s); s = hasComma? s.replace(/\./g,'').replace(',', '.') : s.replace(/,/g,''); const num=Number(s.replace(/[^0-9.\-]/g,'')); return Number.isFinite(num)? Number(num.toFixed(2)):null; }
+
+    // ===== OCR =====
+    function ocrAvailable(){ return window.Tesseract && typeof Tesseract.recognize==='function'; }
+    async function preprocessImage(file){
+      const url = URL.createObjectURL(file);
+      try{
+        const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+        const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d',{willReadFrequently:true});
+        const scale=2.0; canvas.width=img.width*scale; canvas.height=img.height*scale; ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        // grayscale
+        const data=ctx.getImageData(0,0,canvas.width,canvas.height); const a=data.data; for(let i=0;i<a.length;i+=4){ const g=.299*a[i]+.587*a[i+1]+.114*a[i+2]; a[i]=a[i+1]=a[i+2]=g; } ctx.putImageData(data,0,0);
+        return canvas.toDataURL('image/png');
+      } finally{ URL.revokeObjectURL(url); }
+    }
+    async function processImageWithOCR(file){
+      const status = $('#ocrStatus');
+      if(!file || !file.type.startsWith('image/')){ status.textContent='Envie uma imagem (PNG/JPG/WEBP/BMP/GIF).'; return; }
+      if(!ocrAvailable()){ status.textContent='OCR indisponível; cole o texto manualmente.'; return; }
+      status.innerHTML='Preparando imagem...';
+      try{
+        const processed = await preprocessImage(file);
+        status.innerHTML = '<progress id="p" value="0" max="1"></progress> Reconhecendo...';
+        const p = $('#p');
+        const { data:{ text } } = await Tesseract.recognize(processed,'por+eng',{ logger:m=>{ if(m.status==='recognizing text'){ p.value=m.progress; } } });
+        $('#input').value = text; status.textContent='Texto extraído!';
+      }catch(e){ console.error('Erro no OCR:', e); status.textContent='Falha no OCR. Cole o texto manualmente.'; }
     }
 
-    async function processImageWithOCR(file) {
-      if (!file || !file.type.startsWith('image/')) return;
-      const statusEl = $('#ocrStatus');
-      statusEl.innerHTML = '<span>Preparando imagem...</span>';
-      try {
-        const processedImage = await preprocessImage(file);
-        statusEl.innerHTML = '<progress id="ocrProgress" value="0" max="1"></progress><span>Reconhecendo texto...</span>';
-        const progressEl = $('#ocrProgress');
-        const worker = await Tesseract.createWorker('por', 1, { logger: m => { if (m.status === 'recognizing text') progressEl.value = m.progress; } });
-        const { data: { text } } = await worker.recognize(processedImage);
-        await worker.terminate();
-        $('#input').value = text;
-        statusEl.innerHTML = '<span style="color:var(--ok)">Texto extraído com sucesso!</span>';
-        $('#btnExtrair').click();
-      } catch (error) {
-        console.error('Erro no OCR:', error);
-        statusEl.innerHTML = '<span style="color:var(--err)">Falha ao reconhecer texto.</span>';
+    // ===== EXTRAÇÃO =====
+    function extractISSFields(t){
+      const text = (t||'').replace(/\s+/g,' ');
+      const ded   = /Valor\s+Total\s+das\s+Dedu[cç][oõ]es\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
+      const base  = /Base\s+de\s+C[aá]lculo\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
+      const aliq1 = /Al[ií]quota\s*\(%\)\s*([\d.,]+)/i.exec(text) || /Al[ií]quota[^\d%]*([\d.,]+)\s*%/i.exec(text);
+      const valor = /Valor\s+do\s+ISS\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
+      const cred  = /Cr[eé]dito\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
+      return {
+        deducoes: ded? parseCurrency(ded[1]):null,
+        base_calculo: base? parseCurrency(base[1]):null,
+        aliquota_percentual: aliq1? parseCurrency(aliq1[1]):null,
+        valor_iss: valor? parseCurrency(valor[1]):null,
+        credito: cred? parseCurrency(cred[1]):null
+      };
+    }
+    function extractCNAE(text){
+      const m = /(cnae\s*[:#-]?\s*)?(\d{2}\.\d{2}-\d\/?\d{2}|\d{7}\/\d{2})/i.exec(text);
+      return m? m[2].replace(/\s+/g,'').trim():null;
+    }
+    function extractAtividade(text){
+      const lines = (text||'').split(/\r?\n/);
+      const hits = [];
+      for(const l of lines){
+        const s = l.trim();
+        if(/c[oó]digo\s+do\s+servi[cç]o/i.test(s) || /servi[cç]o\s*:/i.test(s)){
+          hits.push(s.replace(/^.*?[:\-]\s*/,'').trim());
+        }
       }
+      if(!hits.length){
+        const m = /(Planos|Consultoria|Servi[cç]os?|Manuten[cç][aã]o|Limpeza|Banho|Tosa)[^\n]{3,}/i.exec(text);
+        if(m) hits.push(m[0]);
+      }
+      return hits.join(' | ') || null;
     }
-
-    function normalize(str) { return (str || "").toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase(); }
-    function lines(text) { return (text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean); }
-    function parseCurrency(raw) {
-      if (raw == null) return null;
-      let s = raw.toString().replace(/R\$\s?/gi, '').replace(/\s/g, '');
-      const hasComma = /,\d{2}$/.test(s);
-      s = hasComma ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
-      const num = Number(s.replace(/[^0-9.\-]/g, ''));
-      return Number.isFinite(num) ? Number(num.toFixed(2)) : null;
-    }
-    function fmtBRL(n) { return (n == null || isNaN(n)) ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
-
-    function findValueByLabels(text, labelList) {
-      const L = lines(text);
-      const NL = L.map(normalize);
-      const labels = labelList.map(s => normalize(s));
-      for (let i = 0; i < NL.length; i++) {
-        for (const lab of labels) {
-          if (NL[i].includes(lab)) {
-            let m = L[i].match(/(?:R\$\s*)?(-?\d{1,3}(?:[.\s]\d{3})*(?:,\d{2})|-?\d+(?:[.,]\d{2})?)/);
-            if (m && m[0]) return { value: parseCurrency(m[0]) };
+    function extractRetencoes(text){
+      const L = (text||'').split(/\r?\n/);
+      const out = { iss:null, irrf:null, csll:null, pis:null, cofins:null, inss:null };
+      const map = [ ['iss','iss retid'], ['irrf','irrf'], ['csll','csll'], ['pis','pis'], ['cofins','cofins'], ['inss','inss'] ];
+      const rxMoney = /(?:R\$\s*)?(-?\d{1,3}(?:[.\s]\d{3})*(?:,\d{2})|-?\d+(?:[.,]\d{2})?)/;
+      for(const line of L){
+        const n = normalize(line);
+        for(const [k,needle] of map){
+          if(n.includes(needle)){
+            const m = line.match(rxMoney); if(m) out[k]=parseCurrency(m[0]);
           }
         }
       }
-      return { value: null };
+      return out;
     }
+    function extractAll(text){
+      const total = /VALOR\s+TOTAL\s+DO\s+SERVI[ÇC]O\s*=\s*R\$\s*([\d.,]+)/i.exec(text);
+      const liquidoLine = (text||'').split(/\r?\n/).find(l=>/valor\s+l[ií]quido(\s+a\s+receber)?/i.test(l));
+      const liquido = liquidoLine? (liquidoLine.match(/(?:R\$\s*)?[\d.,]+/)||[])[0] : null;
 
-    function detectSimples(text) {
-      const norm = normalize(text);
-      if (/(nao|não)\s*optante\s*pelo?\s*simples/.test(norm)) return { value: false };
-      if (/(optante\s*pelo?\s*simples\s*nacional|simples\s*nacional|mei\b)/.test(norm)) return { value: true };
-      return { value: null };
-    }
+      const iss = extractISSFields(text);
+      const cnae = extractCNAE(text);
+      const atividade = extractAtividade(text);
+      const ret = extractRetencoes(text);
+      const total_ret = [ret.iss,ret.irrf,ret.csll,ret.pis,ret.cofins,ret.inss].filter(v=>typeof v==='number').reduce((a,b)=>a+b,0);
 
-    function extractAll(text) {
-      const get = id => $(`#${id}`).value.split(',').map(s => s.trim()).filter(Boolean);
-      const total = findValueByLabels(text, get('labelsTotal'));
-      const liquido = findValueByLabels(text, get('labelsLiquido'));
-      const iss = findValueByLabels(text, get('labelsISS'));
-      const irrf = findValueByLabels(text, get('labelsIRRF'));
-      const csll = findValueByLabels(text, get('labelsCSLL'));
-      const pis = findValueByLabels(text, get('labelsPIS'));
-      const cofins = findValueByLabels(text, get('labelsCOFINS'));
-      const inss = findValueByLabels(text, get('labelsINSS'));
-      
-      const retencoesList = [iss, irrf, csll, pis, cofins, inss].map(x => x.value || 0).filter(v => Number.isFinite(v));
-      const totalRet = retencoesList.length > 0 ? Number(retencoesList.reduce((a, b) => a + b, 0).toFixed(2)) : null;
+      let liquidoNum = liquido? parseCurrency(liquido) : null;
+      if(liquidoNum==null && total){ liquidoNum = Number((parseCurrency(total[1]) - (total_ret||0)).toFixed(2)); }
 
-      let liquidoVal = liquido.value;
-      const avisos = [];
-      if (liquidoVal == null && total.value != null && totalRet != null) {
-        liquidoVal = Number((total.value - totalRet).toFixed(2));
-        avisos.push('Valor líquido inferido: total - retenções.');
-      }
-      
       return {
-        simples_nacional_auto: detectSimples(text).value,
-        valores: {
-          valor_total: total.value,
-          retencoes: { iss: iss.value, irrf: irrf.value, csll: csll.value, pis: pis.value, cofins: cofins.value, inss: inss.value, total_retencoes: totalRet },
-          valor_liquido: liquidoVal
+        cnae, atividade,
+        valores:{
+          valor_total: total? parseCurrency(total[1]):null,
+          valor_liquido: liquidoNum,
+          retencoes:{...ret, total_retencoes: Number.isFinite(total_ret)? Number(total_ret.toFixed(2)): null}
         },
-        metadata: { warnings: avisos }
+        apuracao_iss: iss
       };
     }
 
-    function generateAIPrompt(result) {
-        const { valores } = result;
-        const simples_nacional = manualSimplesNacional !== null ? manualSimplesNacional : result.simples_nacional_auto;
-        const valorTotalFmt = valores.valor_total ? fmtBRL(valores.valor_total) : "[valor não encontrado]";
-        
-        const retencoes = [];
-        if (valores.retencoes.iss) retencoes.push(`ISS de ${fmtBRL(valores.retencoes.iss)}`);
-        if (valores.retencoes.irrf) retencoes.push(`IRRF de ${fmtBRL(valores.retencoes.irrf)}`);
-        if (valores.retencoes.csll) retencoes.push(`CSLL de ${fmtBRL(valores.retencoes.csll)}`);
-        if (valores.retencoes.pis) retencoes.push(`PIS de ${fmtBRL(valores.retencoes.pis)}`);
-        if (valores.retencoes.cofins) retencoes.push(`COFINS de ${fmtBRL(valores.retencoes.cofins)}`);
-        if (valores.retencoes.inss) retencoes.push(`INSS de ${fmtBRL(valores.retencoes.inss)}`);
+    // ===== PROMPT =====
+    function buildPrompt(d){
+      const ret = d.valores.retencoes; const items=[];
+      if(ret.iss) items.push(`ISS retido ${fmtBRL(ret.iss)}`);
+      if(ret.irrf) items.push(`IRRF ${fmtBRL(ret.irrf)}`);
+      if(ret.csll) items.push(`CSLL ${fmtBRL(ret.csll)}`);
+      if(ret.pis) items.push(`PIS ${fmtBRL(ret.pis)}`);
+      if(ret.cofins) items.push(`COFINS ${fmtBRL(ret.cofins)}`);
+      if(ret.inss) items.push(`INSS ${fmtBRL(ret.inss)}`);
+      const retStr = items.length? items.join(', ') : 'sem retenções informadas';
 
-        let retencoesStr = "nenhuma retenção informada";
-        if (retencoes.length > 0) {
-            retencoesStr = `as seguintes retenções: ${retencoes.join(", ")}`;
-        }
+      const simplesStr = manual.simples===true? 'prestador optante pelo Simples Nacional' : manual.simples===false? 'prestador não optante pelo Simples Nacional' : 'sem informação de Simples';
+      let condStr = '';
+      if(manual.condominio===true) condStr = ' O tomador é CONDOMÍNIO.';
+      else if(manual.condominio===false) condStr = ' O tomador NÃO é condomínio.';
 
-        let simplesStr = "cujo enquadramento no Simples Nacional é desconhecido";
-        if (simples_nacional === true) {
-            simplesStr = "sendo o prestador optante pelo Simples Nacional";
-        } else if (simples_nacional === false) {
-            simplesStr = "sendo o prestador não optante pelo Simples Nacional";
-        }
+      const issDev = d.apuracao_iss?.valor_iss; const aliq = d.apuracao_iss?.aliquota_percentual; const base = d.apuracao_iss?.base_calculo;
+      const issStr = issDev!=null? `; ISS devido ${fmtBRL(issDev)}${aliq!=null?` (alíquota ${aliq}%)`:''}${base!=null?` sobre base ${fmtBRL(base)}`:''}`:'';
 
-        return `Analise a seguinte nota fiscal de serviços: O valor total é de ${valorTotalFmt}, com ${retencoesStr}, ${simplesStr}. Com base na legislação tributária, as retenções apresentadas estão corretas para esta operação?`;
+      const cnaeStr = d.cnae? `CNAE ${d.cnae}` : 'CNAE não informado';
+      const atvStr = d.atividade? `Atividade: ${d.atividade}` : 'Atividade não informada';
+
+      const obs = ($('#obs').value||'').trim();
+      const obsStr = obs? ` Observações: ${obs}` : '';
+
+      return `Analise a NFS-e: valor total ${fmtBRL(d.valores.valor_total)}, ${retStr}. ${simplesStr}${issStr}. ${cnaeStr}. ${atvStr}.${condStr}${obsStr}\nVerifique se as retenções estão corretas para esta operação e explique eventuais divergências.`;
     }
 
-    function render() {
-      if (!extractedData) return;
-      const { valores, simples_nacional_auto } = extractedData;
-      
-      $('#kpiTotal').textContent = fmtBRL(valores.valor_total);
-      $('#kpiLiquido').textContent = fmtBRL(valores.valor_liquido);
-      $('#kpiISS').textContent = fmtBRL(valores.retencoes.iss);
-      $('#kpiIRRF').textContent = fmtBRL(valores.retencoes.irrf);
-      $('#kpiCSLL').textContent = fmtBRL(valores.retencoes.csll);
-      $('#kpiPIS').textContent = fmtBRL(valores.retencoes.pis);
-      
-      const finalSimplesStatus = manualSimplesNacional !== null ? manualSimplesNacional : simples_nacional_auto;
-      updateSimplesButtons(finalSimplesStatus);
-
-      $('#output').textContent = generateAIPrompt(extractedData);
-      
-      const ul = $('#avisos');
-      ul.innerHTML = '';
-      extractedData.metadata.warnings.forEach(w => {
-        const li = document.createElement('li'); li.textContent = w; ul.appendChild(li);
-      });
+    function render(d){
+      $('#kpiTotal').textContent   = fmtBRL(d.valores.valor_total);
+      $('#kpiLiquido').textContent = fmtBRL(d.valores.valor_liquido);
+      $('#kpiISS').textContent     = fmtBRL(d.valores.retencoes.iss);
+      $('#kpiIRRF').textContent    = fmtBRL(d.valores.retencoes.irrf);
+      $('#kpiCSLL').textContent    = fmtBRL(d.valores.retencoes.csll);
+      $('#kpiPIS').textContent     = fmtBRL(d.valores.retencoes.pis);
+      $('#kpiCOFINS').textContent  = fmtBRL(d.valores.retencoes.cofins);
+      $('#kpiINSS').textContent    = fmtBRL(d.valores.retencoes.inss);
+      $('#kpiISSDev').textContent  = fmtBRL(d.apuracao_iss.valor_iss);
+      $('#kpiBase').textContent    = fmtBRL(d.apuracao_iss.base_calculo);
+      $('#kpiAliq').textContent    = d.apuracao_iss.aliquota_percentual!=null? `${d.apuracao_iss.aliquota_percentual}%` : '—';
+      $('#kpiCNAE').textContent    = d.cnae || '—';
+      $('#kpiAtividade').textContent = d.atividade || '—';
+      $('#output').textContent = buildPrompt(d);
     }
 
-    function updateSimplesButtons(status) {
-        $$('.btn-choice').forEach(btn => btn.classList.remove('active'));
-        let targetButton;
-        if (status === true) {
-            targetButton = $('.btn-choice.sim');
-        } else if (status === false) {
-            targetButton = $('.btn-choice.nao');
-        } else {
-            targetButton = $('.btn-choice.ind');
-        }
-        if (targetButton) targetButton.classList.add('active');
-    }
-    
-    function saveSettings() {
-      const settings = {};
-      $$('.setting').forEach(el => { settings[el.id] = el.value; });
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    }
+    // ===== Eventos =====
+    function setup(){
+      const drop = $('#dropZone'); const file = $('#fileInput');
+      drop.addEventListener('click', ()=> file.click());
+      drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('dragover'); });
+      drop.addEventListener('dragleave', ()=> drop.classList.remove('dragover'));
+      drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('dragover'); const f=e.dataTransfer.files[0]; if(f) processImageWithOCR(f); });
+      file.addEventListener('change', e=>{ if(e.target.files[0]) processImageWithOCR(e.target.files[0]); });
+      document.addEventListener('paste', e=>{ try{ const items = e.clipboardData && e.clipboardData.items? Array.from(e.clipboardData.items): []; const img = items.find(it=> it.type && it.type.startsWith('image/')); const f = img? img.getAsFile() : (e.clipboardData.files && e.clipboardData.files[0]); if(f) processImageWithOCR(f); }catch(err){ console.error('paste error',err); } });
 
-    function loadSettings() {
-      const saved = localStorage.getItem(SETTINGS_KEY);
-      if (saved) {
-        const settings = JSON.parse(saved);
-        Object.keys(settings).forEach(key => {
-          const el = $('#' + key);
-          if (el) el.value = settings[key];
-        });
-      }
+      $('#btnExtrair').addEventListener('click', ()=>{ lastData = extractAll($('#input').value||''); render(lastData); });
+      $('#btnExemplo').addEventListener('click', ()=>{ const exemplo = `VALOR TOTAL DO SERVIÇO = R$ 52,01\nINSS (R$) -\t IRRF (R$) -\t CSLL (R$) -\t COFINS (R$) -\t PIS/PASEP (R$) -\nCódigo do Serviço 06533 - Planos de atendimento e assistência médico-veterinária.\nValor Total das Deduções (R$) 0,00  Base de Cálculo (R$) 52,01  Alíquota (%) 2,00  Valor do ISS (R$) 1,04  Crédito (R$) 0,00\nCNAE 86.90-9/99`; $('#input').value = exemplo; $('#btnExtrair').click(); });
+      $('#btnCopiarPrompt').addEventListener('click', async()=>{ try{ await navigator.clipboard.writeText($('#output').textContent); const b=$('#btnCopiarPrompt'); b.textContent='Copiado!'; setTimeout(()=>b.textContent='Copiar Prompt',1200);}catch(e){console.error(e);} });
+      $('#btnBaixarPrompt').addEventListener('click', ()=>{ const blob=new Blob([$('#output').textContent],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='prompt-nfse.txt'; a.click(); URL.revokeObjectURL(a.href); });
+
+      // toggles
+      $$('.btn-choice').forEach(btn=>{ btn.addEventListener('click', ()=>{ const k=btn.dataset.key; const v=btn.dataset.value; manual[k] = (v==='true')?true : (v==='false')?false : null; btn.parentElement.querySelectorAll('.btn-choice').forEach(b=>b.classList.remove('active','sim','nao','ind')); btn.classList.add('active', v==='true'?'sim': v==='false'?'nao':'ind'); if(lastData) $('#output').textContent = buildPrompt(lastData); }); btn.tabIndex=0; btn.addEventListener('keyup',e=>{ if(e.key==='Enter'||e.key===' ') btn.click();}); });
+
+      // testes
+      $('#btnRunTests').addEventListener('click', runTests);
     }
 
-    function setupEventListeners() {
-      const inputArea = $('#inputArea');
-      const fileInput = $('#fileInput');
-
-      $('#selectLink, #selectLink2').addEventListener('click', () => fileInput.click());
-      inputArea.addEventListener('click', (e) => { if(e.target === inputArea || e.target.tagName === 'P') fileInput.click(); });
-      fileInput.addEventListener('change', (e) => { if (e.target.files.length) processImageWithOCR(e.target.files[0]); });
-      inputArea.addEventListener('dragover', (e) => { e.preventDefault(); inputArea.classList.add('dragover'); });
-      inputArea.addEventListener('dragleave', () => inputArea.classList.remove('dragover'));
-      inputArea.addEventListener('drop', (e) => { e.preventDefault(); inputArea.classList.remove('dragover'); if (e.dataTransfer.files.length) processImageWithOCR(e.dataTransfer.files[0]); });
-      document.addEventListener('paste', (e) => { const file = e.clipboardData.files[0]; if (file) processImageWithOCR(file); });
-
-      $('#btnExtrair').addEventListener('click', () => {
-        extractedData = extractAll($('#input').value);
-        manualSimplesNacional = null; 
-        render();
-      });
-      $('#btnLimpar').addEventListener('click', () => {
-        $('#input').value = ''; $('#output').textContent = ''; $('#ocrStatus').innerHTML = '';
-        extractedData = extractAll('');
-        manualSimplesNacional = null;
-        render();
-      });
-      $('#btnExemplo').addEventListener('click', () => {
-        const exemplo = `VALOR TOTAL DO SERVIÇO = R$ 52,01\nValor do ISS (R$) 1,04`;
-        $('#input').value = exemplo.trim();
-        $('#btnExtrair').click();
-      });
-      $('#btnCopiar').addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText($('#output').textContent);
-          const b = $('#btnCopiar'); b.textContent = 'Copiado!';
-          setTimeout(() => b.textContent = 'Copiar Prompt', 1200);
-        } catch (e) { console.error('Falha ao copiar:', e); }
-      });
-      $('#btnDownload').addEventListener('click', () => {
-        const blob = new Blob([$('#output').textContent], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'prompt-nfse.txt';
-        a.click();
-        URL.revokeObjectURL(a.href);
-      });
-      
-      $$('.setting').forEach(el => {
-          el.addEventListener('change', saveSettings);
-          el.addEventListener('keyup', saveSettings);
-      });
-
-      $$('.btn-choice').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const value = btn.dataset.value;
-            if (value === 'true') manualSimplesNacional = true;
-            else if (value === 'false') manualSimplesNacional = false;
-            else manualSimplesNacional = null;
-            
-            render();
-        });
-      });
+    // ===== Testes =====
+    function runTests(){
+      const log=[]; let pass=0,fail=0; const ok=x=>{log.push('✅ '+x);pass++;}; const nope=(x,m)=>{log.push('❌ '+x+' -> '+m);fail++;};
+      try{ if(parseCurrency('R$ 1.234,56')===1234.56) ok('parseCurrency BRL'); else nope('parseCurrency BRL','valor'); }catch(e){ nope('parseCurrency BRL',e.message); }
+      try{ const r = extractISSFields('Base de Cálculo (R$) 52,01 Alíquota (%) 2,00 Valor do ISS (R$) 1,04'); if(r.base_calculo===52.01 && r.aliquota_percentual===2 && r.valor_iss===1.04) ok('extractISSFields'); else nope('extractISSFields','campos'); }catch(e){ nope('extractISSFields',e.message); }
+      try{ const r = extractAll('VALOR TOTAL DO SERVIÇO = R$ 52,01\nCNAE 86.90-9/99\nCódigo do Serviço 06533 - Teste'); if(r.valores.valor_total===52.01 && r.cnae && r.atividade) ok('extractAll integração'); else nope('extractAll integração','dados'); }catch(e){ nope('extractAll integração',e.message); }
+      $('#testsSummary').textContent = `${pass} passaram, ${fail} falharam`;
+      $('#testsLog').textContent = log.join('\n');
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      loadSettings();
-      setupEventListeners();
-      extractedData = extractAll('');
-      render();
-    });
+    document.addEventListener('DOMContentLoaded', setup);
   </script>
 </body>
 </html>
