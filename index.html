@@ -56,6 +56,14 @@
         </div>
 
         <div class="card bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Localização (opcional)</label>
+            <div class="grid grid-cols-1 gap-4">
+                <input id="prestadorLocal" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-sm" placeholder="Município / UF do Prestador" />
+                <input id="tomadorLocal" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-sm" placeholder="Município / UF do Tomador" />
+            </div>
+        </div>
+
+        <div class="card bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
            <div class="flex flex-wrap gap-2">
              <button id="btnExtrair" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Extrair Dados</button>
              <button id="btnExemplo" class="flex-1 bg-slate-500 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Exemplo</button>
@@ -124,9 +132,9 @@
 
   <script>
     /**
-     * @file Extrator NFS-e - Versão Refatorada
+     * @file Extrator NFS-e - Versão Final
      * @author HAlexandre
-     * @version 2.0.0
+     * @version 2.4.0
      */
 
     // --- Módulo de Estado da Aplicação ---
@@ -158,6 +166,8 @@
         ocrStatus: document.getElementById('ocrStatus'),
         input: document.getElementById('input'),
         obs: document.getElementById('obs'),
+        prestadorLocal: document.getElementById('prestadorLocal'),
+        tomadorLocal: document.getElementById('tomadorLocal'),
         btnExtrair: document.getElementById('btnExtrair'),
         btnExemplo: document.getElementById('btnExemplo'),
         btnCopiarPrompt: document.getElementById('btnCopiarPrompt'),
@@ -181,18 +191,24 @@
       setStatus(message) { this.dom.ocrStatus.innerHTML = message; },
 
       renderKPIs(data) {
-        this.dom.kpiElements.kpiTotal.textContent = Utils.fmtBRL(data.valores.valor_total);
-        this.dom.kpiElements.kpiLiquido.textContent = Utils.fmtBRL(data.valores.valor_liquido);
-        this.dom.kpiElements.kpiISS.textContent = Utils.fmtBRL(data.valores.retencoes.iss);
-        this.dom.kpiElements.kpiIRRF.textContent = Utils.fmtBRL(data.valores.retencoes.irrf);
-        this.dom.kpiElements.kpiCSLL.textContent = Utils.fmtBRL(data.valores.retencoes.csll);
-        this.dom.kpiElements.kpiPIS.textContent = Utils.fmtBRL(data.valores.retencoes.pis);
-        this.dom.kpiElements.kpiCOFINS.textContent = Utils.fmtBRL(data.valores.retencoes.cofins);
-        this.dom.kpiElements.kpiINSS.textContent = Utils.fmtBRL(data.valores.retencoes.inss);
-        this.dom.kpiElements.kpiISSDev.textContent = Utils.fmtBRL(data.apuracao_iss.valor_iss);
-        this.dom.kpiElements.kpiBase.textContent = Utils.fmtBRL(data.apuracao_iss.base_calculo);
-        this.dom.kpiElements.kpiAliq.textContent = data.apuracao_iss.aliquota_percentual != null ? `${data.apuracao_iss.aliquota_percentual}%` : '—';
-        this.dom.kpiElements.kpiCNAE.textContent = data.cnae || '—';
+        Object.keys(this.dom.kpiElements).forEach(key => {
+            this.dom.kpiElements[key].textContent = '—';
+        });
+
+        if (data) {
+            this.dom.kpiElements.kpiTotal.textContent = Utils.fmtBRL(data.valores.valor_total);
+            this.dom.kpiElements.kpiLiquido.textContent = Utils.fmtBRL(data.valores.valor_liquido);
+            this.dom.kpiElements.kpiISS.textContent = Utils.fmtBRL(data.valores.retencoes.iss);
+            this.dom.kpiElements.kpiIRRF.textContent = Utils.fmtBRL(data.valores.retencoes.irrf);
+            this.dom.kpiElements.kpiCSLL.textContent = Utils.fmtBRL(data.valores.retencoes.csll);
+            this.dom.kpiElements.kpiPIS.textContent = Utils.fmtBRL(data.valores.retencoes.pis);
+            this.dom.kpiElements.kpiCOFINS.textContent = Utils.fmtBRL(data.valores.retencoes.cofins);
+            this.dom.kpiElements.kpiINSS.textContent = Utils.fmtBRL(data.valores.retencoes.inss);
+            this.dom.kpiElements.kpiISSDev.textContent = Utils.fmtBRL(data.apuracao_iss.valor_iss);
+            this.dom.kpiElements.kpiBase.textContent = Utils.fmtBRL(data.apuracao_iss.base_calculo);
+            this.dom.kpiElements.kpiAliq.textContent = data.apuracao_iss.aliquota_percentual != null ? `${data.apuracao_iss.aliquota_percentual}%` : '—';
+            this.dom.kpiElements.kpiCNAE.textContent = data.cnae || '—';
+        }
       },
 
       updateActivityFields(data) {
@@ -341,31 +357,91 @@
       build(d) {
         const ret = d.valores.retencoes;
         const items = [];
-        if (ret.iss) items.push(`ISS retido ${Utils.fmtBRL(ret.iss)}`);
-        if (ret.irrf) items.push(`IRRF ${Utils.fmtBRL(ret.irrf)}`);
-        if (ret.csll) items.push(`CSLL ${Utils.fmtBRL(ret.csll)}`);
-        if (ret.pis) items.push(`PIS ${Utils.fmtBRL(ret.pis)}`);
-        if (ret.cofins) items.push(`COFINS ${Utils.fmtBRL(ret.cofins)}`);
-        if (ret.inss) items.push(`INSS ${Utils.fmtBRL(ret.inss)}`);
-        const retStr = items.length ? items.join(', ') : 'sem retenções informadas';
+        if (ret.iss) items.push(`- ISS Retido: ${Utils.fmtBRL(ret.iss)}`);
+        if (ret.irrf) items.push(`- IRRF: ${Utils.fmtBRL(ret.irrf)}`);
+        if (ret.csll) items.push(`- CSLL: ${Utils.fmtBRL(ret.csll)}`);
+        if (ret.pis) items.push(`- PIS: ${Utils.fmtBRL(ret.pis)}`);
+        if (ret.cofins) items.push(`- COFINS: ${Utils.fmtBRL(ret.cofins)}`);
+        if (ret.inss) items.push(`- INSS: ${Utils.fmtBRL(ret.inss)}`);
+        const retStr = items.length ? items.join('\n') : '- Nenhuma retenção informada.';
 
-        const simplesStr = AppState.manualToggles.simples === true ? 'prestador optante pelo Simples Nacional' : AppState.manualToggles.simples === false ? 'prestador não optante pelo Simples Nacional' : 'sem informação de Simples';
-        let condStr = AppState.manualToggles.condominio === true ? ' O tomador é CONDOMÍNIO.' : AppState.manualToggles.condominio === false ? ' O tomador NÃO é condomínio.' : '';
+        const simplesStr = AppState.manualToggles.simples === true ? 'Optante pelo Simples Nacional' : AppState.manualToggles.simples === false ? 'Não optante pelo Simples Nacional (Lucro Presumido/Real)' : 'Não informado';
+        const condStr = AppState.manualToggles.condominio === true ? 'Condomínio Edilício' : AppState.manualToggles.condominio === false ? 'Não é condomínio' : 'Não informado';
 
         const issDev = d.apuracao_iss?.valor_iss;
         const aliq = d.apuracao_iss?.aliquota_percentual;
         const base = d.apuracao_iss?.base_calculo;
-        const issStr = issDev != null ? `; ISS devido ${Utils.fmtBRL(issDev)}${aliq != null ? ` (alíquota ${aliq}%)` : ''}${base != null ? ` sobre base ${Utils.fmtBRL(base)}` : ''}` : '';
+        const issStr = issDev != null ? `Valor do ISS devido: ${Utils.fmtBRL(issDev)} (Alíquota: ${aliq != null ? `${aliq}%` : 'N/A'} sobre Base de Cálculo de ${base != null ? Utils.fmtBRL(base) : 'N/A'})` : 'Não informado';
 
         const code = (UI.dom.srvCode.value || d.atividade.code || '').trim();
         const desc = (UI.dom.srvDesc.value || d.atividade.desc || '').trim();
-        const atividadeStr = (code || desc) ? `Código do serviço ${code || '[não informado]'}${desc ? ` – ${desc}` : ''}` : 'Atividade não informada';
+        const atividadeStr = (code || desc) ? `- Código do Serviço: ${code || '[não informado]'}\n- Descrição: ${desc || '[não informada]'}` : '- Atividade não informada';
 
-        const cnaeStr = d.cnae ? `CNAE ${d.cnae}` : 'CNAE não informado';
+        const cnaeStr = d.cnae ? d.cnae : 'Não informado';
         const obs = (UI.dom.obs.value || '').trim();
-        const obsStr = obs ? ` Observações: ${obs}` : '';
+        const obsStr = obs ? obs : 'Nenhuma.';
+        
+        const prestadorLocal = (UI.dom.prestadorLocal.value || '').trim();
+        const tomadorLocal = (UI.dom.tomadorLocal.value || '').trim();
 
-        return `Analise a NFS-e: valor total ${Utils.fmtBRL(d.valores.valor_total)}, ${retStr}. ${simplesStr}${issStr}. ${cnaeStr}. ${atividadeStr}.${condStr}${obsStr}\nVerifique se as retenções estão corretas para esta operação e explique eventuais divergências.`;
+        return `
+# Análise Tributária de NFS-e
+
+**Você é um especialista em legislação tributária brasileira.** Analise os dados da Nota Fiscal de Serviço eletrônica (NFS-e) extraídos abaixo e forneça uma análise detalhada, respondendo a cada um dos pontos solicitados.
+
+**## Dados Extraídos da NFS-e:**
+
+* **Valores Gerais:**
+    - Valor Total dos Serviços: ${Utils.fmtBRL(d.valores.valor_total)}
+    - Valor Líquido a Receber: ${Utils.fmtBRL(d.valores.valor_liquido)}
+* **Retenções Informadas na Nota:**
+${retStr}
+* **Informações do Prestador:**
+    - Regime Tributário: ${simplesStr}
+    - Município / UF: ${prestadorLocal || 'Não informado'}
+* **Informações do Tomador:**
+    - Tipo: ${condStr}
+    - Município / UF: ${tomadorLocal || 'Não informado'}
+* **Apuração do ISS na Nota:**
+    - ${issStr}
+* **Atividade do Serviço:**
+    - CNAE: ${cnaeStr}
+    ${atividadeStr}
+* **Observações Adicionais (fornecidas pelo usuário):**
+    - ${obsStr}
+
+**## Tarefas de Análise (Responda a todas):**
+
+1.  **Conferência das Retenções Federais e Previdenciárias:**
+    * Com base na atividade (CNAE e código de serviço), no regime tributário do prestador e no tipo de tomador, as retenções de **IRRF, PIS, COFINS, CSLL e INSS** informadas na nota estão corretas?
+    * Se corretas, confirme.
+    * Se houver alguma retenção incorreta ou ausente, aponte as divergências, calcule os valores corretos e **cite o embasamento legal detalhado** (ex: Lei nº X, Art. Y; Instrução Normativa RFB nº Z, etc.) para cada tributo aplicável.
+
+2.  **Análise do ISS Retido:**
+    * O valor do **ISS retido** na nota está correto? A retenção era devida?
+    * Compare o valor retido com o "ISS devido" apurado na nota. Se houver divergência, explique a possível causa.
+    * **Cite a legislação municipal pertinente** (Lei Complementar 116/2003 e a lei do município do tomador, se aplicável).
+
+3.  **Pontos de Atenção e Riscos:**
+    * Existem outros pontos de atenção ou riscos fiscais nesta operação, considerando todas as informações fornecidas (ex: tomador ser condomínio, tipo de serviço, regime tributário)? Explique.
+
+**## Tarefa Final: Tabela Resumo**
+
+Por fim, gere uma tabela em formato Markdown com o seguinte resumo financeiro, preenchendo com os valores extraídos. Se um tributo não for informado, utilize R$ 0,00.
+
+| Descrição | Valor (R$) |
+| :--- | :--- |
+| Valor Bruto dos Serviços | ${Utils.fmtBRL(d.valores.valor_total || 0)} |
+| (-) ISS Retido | ${Utils.fmtBRL(ret.iss || 0)} |
+| (-) IRRF | ${Utils.fmtBRL(ret.irrf || 0)} |
+| (-) CSLL | ${Utils.fmtBRL(ret.csll || 0)} |
+| (-) PIS | ${Utils.fmtBRL(ret.pis || 0)} |
+| (-) COFINS | ${Utils.fmtBRL(ret.cofins || 0)} |
+| (-) INSS | ${Utils.fmtBRL(ret.inss || 0)} |
+| **(=) Valor Líquido a Receber** | **${Utils.fmtBRL(d.valores.valor_liquido || 0)}** |
+
+**Forneça uma resposta clara, organizada em seções e com o devido embasamento legal para cada ponto.**
+`.trim();
       }
     };
 
@@ -408,7 +484,13 @@
 
         dom.btnCopiarPrompt.addEventListener('click', async () => {
           try {
-            await navigator.clipboard.writeText(dom.output.textContent);
+            const tempTextarea = document.createElement('textarea');
+            tempTextarea.value = dom.output.textContent;
+            document.body.appendChild(tempTextarea);
+            tempTextarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextarea);
+            
             const b = dom.btnCopiarPrompt;
             b.textContent = 'Copiado!';
             setTimeout(() => b.textContent = 'Copiar', 1200);
@@ -438,6 +520,8 @@
         dom.srvCode.addEventListener('input', () => { AppState.hasManuallyEditedActivity = true; updatePromptOnInput(); });
         dom.srvDesc.addEventListener('input', () => { AppState.hasManuallyEditedActivity = true; updatePromptOnInput(); });
         dom.obs.addEventListener('input', updatePromptOnInput);
+        dom.prestadorLocal.addEventListener('input', updatePromptOnInput);
+        dom.tomadorLocal.addEventListener('input', updatePromptOnInput);
 
         dom.themeToggle.addEventListener('click', () => {
           document.documentElement.classList.toggle('dark');
