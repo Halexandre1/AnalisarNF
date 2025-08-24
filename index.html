@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Extrator NFS-e — OCR + Extração + Prompt</title>
-  <!-- OCR (Tesseract.js) -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     :root{ --bg:#0b1220; --card:#111a2e; --muted:#8ea0c9; --accent:#5cc8ff; --ok:#18c28e; --warn:#ffb02e; --err:#ff6b6b; --border:#223151; }
@@ -13,7 +12,8 @@
     .container{max-width:1100px;margin:24px auto;padding:0 16px}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:14px}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    textarea{width:100%;min-height:160px;background:#0c1526;color:#e7f0ff;border:none;border-radius:12px;padding:12px 14px;line-height:1.4}
+    textarea, input{width:100%;background:#0c1526;color:#e7f0ff;border:1px solid var(--border);border-radius:12px;padding:10px 12px;line-height:1.4}
+    input{height:40px}
     .btn{background:#1e2a47;border:1px solid var(--border);color:#e7f0ff;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
     .btn.ghost{background:transparent}
     .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:8px}
@@ -32,6 +32,7 @@
     #dropZone.dragover{border-color:var(--accent);background:#132344}
     #ocrStatus{font-size:12px;color:var(--muted);min-height:22px;margin-top:6px}
     .label{font-size:12px;color:#a9bbeb;margin-top:8px}
+    .grid2{display:grid;grid-template-columns:1fr 2fr;gap:8px}
   </style>
 </head>
 <body>
@@ -68,7 +69,20 @@
       <div class="box"><h4>Base de cálculo</h4><div id="kpiBase" class="v">—</div></div>
       <div class="box"><h4>Alíquota (%)</h4><div id="kpiAliq" class="v">—</div></div>
       <div class="box"><h4>CNAE</h4><div id="kpiCNAE" class="v">—</div></div>
-      <div class="box" style="grid-column:1/-1"><h4>Atividade / Código do serviço</h4><div id="kpiAtividade" class="v">—</div></div>
+    </div>
+
+    <div class="card" style="margin-top:10px">
+      <div class="label">Atividade / Código do serviço — edite quando a nota trouxer só o código</div>
+      <div class="grid2">
+        <div>
+          <div class="label">Código do Serviço</div>
+          <input id="srvCode" placeholder="Ex.: 06533" />
+        </div>
+        <div>
+          <div class="label">Descrição / Atividade</div>
+          <input id="srvDesc" placeholder="Ex.: Planos de atendimento e assistência médico-veterinária" />
+        </div>
+      </div>
     </div>
 
     <div class="row" style="margin-top:10px">
@@ -93,11 +107,6 @@
     <div class="label" style="margin-top:10px">Prompt Gerado</div>
     <pre id="output" class="out"></pre>
 
-    <details>
-      <summary>🧪 Testes rápidos</summary>
-      <div class="row"><button id="btnRunTests" class="btn ghost">Executar</button><span id="testsSummary" class="label"></span></div>
-      <pre id="testsLog" class="out" style="min-height:60px"></pre>
-    </details>
   </div>
 
   <script>
@@ -106,6 +115,7 @@
 
     let manual = { simples:null, condominio:null };
     let lastData = null;
+    let touchedManualAtividade = false; // evita sobrescrever quando usuário editou
 
     // ===== Util =====
     const fmtBRL = n => (n==null||isNaN(n))? '—' : n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -120,7 +130,6 @@
         const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
         const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d',{willReadFrequently:true});
         const scale=2.0; canvas.width=img.width*scale; canvas.height=img.height*scale; ctx.drawImage(img,0,0,canvas.width,canvas.height);
-        // grayscale
         const data=ctx.getImageData(0,0,canvas.width,canvas.height); const a=data.data; for(let i=0;i<a.length;i+=4){ const g=.299*a[i]+.587*a[i+1]+.114*a[i+2]; a[i]=a[i+1]=a[i+2]=g; } ctx.putImageData(data,0,0);
         return canvas.toDataURL('image/png');
       } finally{ URL.revokeObjectURL(url); }
@@ -142,13 +151,11 @@
     // ===== EXTRAÇÃO =====
     function extractISSFields(t){
       const text = (t||'').replace(/\s+/g,' ');
-      const ded   = /Valor\s+Total\s+das\s+Dedu[cç][oõ]es\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
       const base  = /Base\s+de\s+C[aá]lculo\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
       const aliq1 = /Al[ií]quota\s*\(%\)\s*([\d.,]+)/i.exec(text) || /Al[ií]quota[^\d%]*([\d.,]+)\s*%/i.exec(text);
       const valor = /Valor\s+do\s+ISS\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
       const cred  = /Cr[eé]dito\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
       return {
-        deducoes: ded? parseCurrency(ded[1]):null,
         base_calculo: base? parseCurrency(base[1]):null,
         aliquota_percentual: aliq1? parseCurrency(aliq1[1]):null,
         valor_iss: valor? parseCurrency(valor[1]):null,
@@ -159,20 +166,25 @@
       const m = /(cnae\s*[:#-]?\s*)?(\d{2}\.\d{2}-\d\/?\d{2}|\d{7}\/\d{2})/i.exec(text);
       return m? m[2].replace(/\s+/g,'').trim():null;
     }
+    function splitServiceLine(s){
+      // tenta separar "06533 - Descrição" em código + descrição
+      const m = s.match(/(\d{4,5})\s*[-–—]\s*(.+)/);
+      if(m) return { code:m[1], desc:m[2].trim() };
+      // se só tiver o código
+      const m2 = s.match(/\b(\d{4,5})\b/);
+      if(m2) return { code:m2[1], desc:'' };
+      return { code:'', desc:s.trim() };
+    }
     function extractAtividade(text){
       const lines = (text||'').split(/\r?\n/);
-      const hits = [];
       for(const l of lines){
-        const s = l.trim();
-        if(/c[oó]digo\s+do\s+servi[cç]o/i.test(s) || /servi[cç]o\s*:/i.test(s)){
-          hits.push(s.replace(/^.*?[:\-]\s*/,'').trim());
+        if(/c[oó]digo\s+do\s+servi[cç]o/i.test(l) || /servi[cç]o\s*:/i.test(l)){
+          return splitServiceLine(l.replace(/^.*?[:\-]\s*/,'').trim());
         }
       }
-      if(!hits.length){
-        const m = /(Planos|Consultoria|Servi[cç]os?|Manuten[cç][aã]o|Limpeza|Banho|Tosa)[^\n]{3,}/i.exec(text);
-        if(m) hits.push(m[0]);
-      }
-      return hits.join(' | ') || null;
+      const m = /(\d{4,5})\s*[-–—]\s*([^\n]{3,})/.exec(text);
+      if(m) return { code:m[1], desc:m[2].trim() };
+      return { code:'', desc:'' };
     }
     function extractRetencoes(text){
       const L = (text||'').split(/\r?\n/);
@@ -181,11 +193,7 @@
       const rxMoney = /(?:R\$\s*)?(-?\d{1,3}(?:[.\s]\d{3})*(?:,\d{2})|-?\d+(?:[.,]\d{2})?)/;
       for(const line of L){
         const n = normalize(line);
-        for(const [k,needle] of map){
-          if(n.includes(needle)){
-            const m = line.match(rxMoney); if(m) out[k]=parseCurrency(m[0]);
-          }
-        }
+        for(const [k,needle] of map){ if(n.includes(needle)){ const m=line.match(rxMoney); if(m) out[k]=parseCurrency(m[0]); } }
       }
       return out;
     }
@@ -193,23 +201,17 @@
       const total = /VALOR\s+TOTAL\s+DO\s+SERVI[ÇC]O\s*=\s*R\$\s*([\d.,]+)/i.exec(text);
       const liquidoLine = (text||'').split(/\r?\n/).find(l=>/valor\s+l[ií]quido(\s+a\s+receber)?/i.test(l));
       const liquido = liquidoLine? (liquidoLine.match(/(?:R\$\s*)?[\d.,]+/)||[])[0] : null;
-
       const iss = extractISSFields(text);
       const cnae = extractCNAE(text);
-      const atividade = extractAtividade(text);
+      const atv = extractAtividade(text);
       const ret = extractRetencoes(text);
       const total_ret = [ret.iss,ret.irrf,ret.csll,ret.pis,ret.cofins,ret.inss].filter(v=>typeof v==='number').reduce((a,b)=>a+b,0);
-
       let liquidoNum = liquido? parseCurrency(liquido) : null;
       if(liquidoNum==null && total){ liquidoNum = Number((parseCurrency(total[1]) - (total_ret||0)).toFixed(2)); }
-
       return {
-        cnae, atividade,
-        valores:{
-          valor_total: total? parseCurrency(total[1]):null,
-          valor_liquido: liquidoNum,
-          retencoes:{...ret, total_retencoes: Number.isFinite(total_ret)? Number(total_ret.toFixed(2)): null}
-        },
+        cnae,
+        atividade: atv, // {code, desc}
+        valores:{ valor_total: total? parseCurrency(total[1]):null, valor_liquido: liquidoNum, retencoes:{...ret, total_retencoes: Number.isFinite(total_ret)? Number(total_ret.toFixed(2)): null } },
         apuracao_iss: iss
       };
     }
@@ -233,16 +235,18 @@
       const issDev = d.apuracao_iss?.valor_iss; const aliq = d.apuracao_iss?.aliquota_percentual; const base = d.apuracao_iss?.base_calculo;
       const issStr = issDev!=null? `; ISS devido ${fmtBRL(issDev)}${aliq!=null?` (alíquota ${aliq}%)`:''}${base!=null?` sobre base ${fmtBRL(base)}`:''}`:'';
 
+      const code = ($('#srvCode').value||d.atividade.code||'').trim();
+      const desc = ($('#srvDesc').value||d.atividade.desc||'').trim();
+      const atividadeStr = (code||desc)? `Código do serviço ${code||'[não informado]'}${desc?` – ${desc}`:''}` : 'Atividade não informada';
+
       const cnaeStr = d.cnae? `CNAE ${d.cnae}` : 'CNAE não informado';
-      const atvStr = d.atividade? `Atividade: ${d.atividade}` : 'Atividade não informada';
+      const obs = ($('#obs').value||'').trim(); const obsStr = obs? ` Observações: ${obs}` : '';
 
-      const obs = ($('#obs').value||'').trim();
-      const obsStr = obs? ` Observações: ${obs}` : '';
-
-      return `Analise a NFS-e: valor total ${fmtBRL(d.valores.valor_total)}, ${retStr}. ${simplesStr}${issStr}. ${cnaeStr}. ${atvStr}.${condStr}${obsStr}\nVerifique se as retenções estão corretas para esta operação e explique eventuais divergências.`;
+      return `Analise a NFS-e: valor total ${fmtBRL(d.valores.valor_total)}, ${retStr}. ${simplesStr}${issStr}. ${cnaeStr}. ${atividadeStr}.${condStr}${obsStr}\nVerifique se as retenções estão corretas para esta operação e explique eventuais divergências.`;
     }
 
     function render(d){
+      // KPIs
       $('#kpiTotal').textContent   = fmtBRL(d.valores.valor_total);
       $('#kpiLiquido').textContent = fmtBRL(d.valores.valor_liquido);
       $('#kpiISS').textContent     = fmtBRL(d.valores.retencoes.iss);
@@ -255,7 +259,10 @@
       $('#kpiBase').textContent    = fmtBRL(d.apuracao_iss.base_calculo);
       $('#kpiAliq').textContent    = d.apuracao_iss.aliquota_percentual!=null? `${d.apuracao_iss.aliquota_percentual}%` : '—';
       $('#kpiCNAE').textContent    = d.cnae || '—';
-      $('#kpiAtividade').textContent = d.atividade || '—';
+
+      // Preenche campos editáveis (sem sobrescrever se usuário já mexeu)
+      if(!touchedManualAtividade){ $('#srvCode').value = d.atividade.code || ''; $('#srvDesc').value = d.atividade.desc || ''; }
+
       $('#output').textContent = buildPrompt(d);
     }
 
@@ -269,7 +276,7 @@
       file.addEventListener('change', e=>{ if(e.target.files[0]) processImageWithOCR(e.target.files[0]); });
       document.addEventListener('paste', e=>{ try{ const items = e.clipboardData && e.clipboardData.items? Array.from(e.clipboardData.items): []; const img = items.find(it=> it.type && it.type.startsWith('image/')); const f = img? img.getAsFile() : (e.clipboardData.files && e.clipboardData.files[0]); if(f) processImageWithOCR(f); }catch(err){ console.error('paste error',err); } });
 
-      $('#btnExtrair').addEventListener('click', ()=>{ lastData = extractAll($('#input').value||''); render(lastData); });
+      $('#btnExtrair').addEventListener('click', ()=>{ touchedManualAtividade=false; lastData = extractAll($('#input').value||''); render(lastData); });
       $('#btnExemplo').addEventListener('click', ()=>{ const exemplo = `VALOR TOTAL DO SERVIÇO = R$ 52,01\nINSS (R$) -\t IRRF (R$) -\t CSLL (R$) -\t COFINS (R$) -\t PIS/PASEP (R$) -\nCódigo do Serviço 06533 - Planos de atendimento e assistência médico-veterinária.\nValor Total das Deduções (R$) 0,00  Base de Cálculo (R$) 52,01  Alíquota (%) 2,00  Valor do ISS (R$) 1,04  Crédito (R$) 0,00\nCNAE 86.90-9/99`; $('#input').value = exemplo; $('#btnExtrair').click(); });
       $('#btnCopiarPrompt').addEventListener('click', async()=>{ try{ await navigator.clipboard.writeText($('#output').textContent); const b=$('#btnCopiarPrompt'); b.textContent='Copiado!'; setTimeout(()=>b.textContent='Copiar Prompt',1200);}catch(e){console.error(e);} });
       $('#btnBaixarPrompt').addEventListener('click', ()=>{ const blob=new Blob([$('#output').textContent],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='prompt-nfse.txt'; a.click(); URL.revokeObjectURL(a.href); });
@@ -277,18 +284,10 @@
       // toggles
       $$('.btn-choice').forEach(btn=>{ btn.addEventListener('click', ()=>{ const k=btn.dataset.key; const v=btn.dataset.value; manual[k] = (v==='true')?true : (v==='false')?false : null; btn.parentElement.querySelectorAll('.btn-choice').forEach(b=>b.classList.remove('active','sim','nao','ind')); btn.classList.add('active', v==='true'?'sim': v==='false'?'nao':'ind'); if(lastData) $('#output').textContent = buildPrompt(lastData); }); btn.tabIndex=0; btn.addEventListener('keyup',e=>{ if(e.key==='Enter'||e.key===' ') btn.click();}); });
 
-      // testes
-      $('#btnRunTests').addEventListener('click', runTests);
-    }
-
-    // ===== Testes =====
-    function runTests(){
-      const log=[]; let pass=0,fail=0; const ok=x=>{log.push('✅ '+x);pass++;}; const nope=(x,m)=>{log.push('❌ '+x+' -> '+m);fail++;};
-      try{ if(parseCurrency('R$ 1.234,56')===1234.56) ok('parseCurrency BRL'); else nope('parseCurrency BRL','valor'); }catch(e){ nope('parseCurrency BRL',e.message); }
-      try{ const r = extractISSFields('Base de Cálculo (R$) 52,01 Alíquota (%) 2,00 Valor do ISS (R$) 1,04'); if(r.base_calculo===52.01 && r.aliquota_percentual===2 && r.valor_iss===1.04) ok('extractISSFields'); else nope('extractISSFields','campos'); }catch(e){ nope('extractISSFields',e.message); }
-      try{ const r = extractAll('VALOR TOTAL DO SERVIÇO = R$ 52,01\nCNAE 86.90-9/99\nCódigo do Serviço 06533 - Teste'); if(r.valores.valor_total===52.01 && r.cnae && r.atividade) ok('extractAll integração'); else nope('extractAll integração','dados'); }catch(e){ nope('extractAll integração',e.message); }
-      $('#testsSummary').textContent = `${pass} passaram, ${fail} falharam`;
-      $('#testsLog').textContent = log.join('\n');
+      // edição manual de atividade: atualiza prompt sem perder o que foi digitado
+      $('#srvCode').addEventListener('input', ()=>{ touchedManualAtividade=true; if(lastData) $('#output').textContent = buildPrompt(lastData); });
+      $('#srvDesc').addEventListener('input', ()=>{ touchedManualAtividade=true; if(lastData) $('#output').textContent = buildPrompt(lastData); });
+      $('#obs').addEventListener('input', ()=>{ if(lastData) $('#output').textContent = buildPrompt(lastData); });
     }
 
     document.addEventListener('DOMContentLoaded', setup);
