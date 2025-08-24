@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- CORREÇÃO: Adiciona Content Security Policy para permitir o script do Tesseract.js no GitHub Pages -->
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://cdn.jsdelivr.net; worker-src 'self' blob:;">
   <title>Extrator NFS-e com Controle Manual</title>
   <!-- Adiciona a biblioteca Tesseract.js para OCR -->
   <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
@@ -237,4 +239,192 @@
     }
 
     function extractAll(text) {
-      const get = id => $(`#${id}`).value.split(',').map(s => s.trim()).filter(Boolea
+      const get = id => $(`#${id}`).value.split(',').map(s => s.trim()).filter(Boolean);
+      const total = findValueByLabels(text, get('labelsTotal'));
+      const liquido = findValueByLabels(text, get('labelsLiquido'));
+      const iss = findValueByLabels(text, get('labelsISS'));
+      const irrf = findValueByLabels(text, get('labelsIRRF'));
+      const csll = findValueByLabels(text, get('labelsCSLL'));
+      const pis = findValueByLabels(text, get('labelsPIS'));
+      const cofins = findValueByLabels(text, get('labelsCOFINS'));
+      const inss = findValueByLabels(text, get('labelsINSS'));
+      
+      const retencoesList = [iss, irrf, csll, pis, cofins, inss].map(x => x.value || 0).filter(v => Number.isFinite(v));
+      const totalRet = retencoesList.length > 0 ? Number(retencoesList.reduce((a, b) => a + b, 0).toFixed(2)) : null;
+
+      let liquidoVal = liquido.value;
+      const avisos = [];
+      if (liquidoVal == null && total.value != null && totalRet != null) {
+        liquidoVal = Number((total.value - totalRet).toFixed(2));
+        avisos.push('Valor líquido inferido: total - retenções.');
+      }
+      
+      return {
+        simples_nacional_auto: detectSimples(text).value,
+        valores: {
+          valor_total: total.value,
+          retencoes: { iss: iss.value, irrf: irrf.value, csll: csll.value, pis: pis.value, cofins: cofins.value, inss: inss.value, total_retencoes: totalRet },
+          valor_liquido: liquidoVal
+        },
+        metadata: { warnings: avisos }
+      };
+    }
+
+    function generateAIPrompt(result) {
+        const { valores } = result;
+        // Prioriza o valor manual, se existir. Senão, usa o automático.
+        const simples_nacional = manualSimplesNacional !== null ? manualSimplesNacional : result.simples_nacional_auto;
+
+        const valorTotalFmt = valores.valor_total ? fmtBRL(valores.valor_total) : "[valor não encontrado]";
+        
+        const retencoes = [];
+        if (valores.retencoes.iss) retencoes.push(`ISS de ${fmtBRL(valores.retencoes.iss)}`);
+        if (valores.retencoes.irrf) retencoes.push(`IRRF de ${fmtBRL(valores.retencoes.irrf)}`);
+        if (valores.retencoes.csll) retencoes.push(`CSLL de ${fmtBRL(valores.retencoes.csll)}`);
+        if (valores.retencoes.pis) retencoes.push(`PIS de ${fmtBRL(valores.retencoes.pis)}`);
+        if (valores.retencoes.cofins) retencoes.push(`COFINS de ${fmtBRL(valores.retencoes.cofins)}`);
+        if (valores.retencoes.inss) retencoes.push(`INSS de ${fmtBRL(valores.retencoes.inss)}`);
+
+        let retencoesStr = "nenhuma retenção informada";
+        if (retencoes.length > 0) {
+            retencoesStr = `as seguintes retenções: ${retencoes.join(", ")}`;
+        }
+
+        let simplesStr = "cujo enquadramento no Simples Nacional é desconhecido";
+        if (simples_nacional === true) {
+            simplesStr = "sendo o prestador optante pelo Simples Nacional";
+        } else if (simples_nacional === false) {
+            simplesStr = "sendo o prestador não optante pelo Simples Nacional";
+        }
+
+        return `Analise a seguinte nota fiscal de serviços: O valor total é de ${valorTotalFmt}, com ${retencoesStr}, ${simplesStr}. Com base na legislação tributária, as retenções apresentadas estão corretas para esta operação?`;
+    }
+
+    function render() {
+      if (!extractedData) return;
+      const { valores, simples_nacional_auto } = extractedData;
+      
+      // Renderiza KPIs
+      $('#kpiTotal').textContent = fmtBRL(valores.valor_total);
+      $('#kpiLiquido').textContent = fmtBRL(valores.valor_liquido);
+      $('#kpiISS').textContent = fmtBRL(valores.retencoes.iss);
+      $('#kpiIRRF').textContent = fmtBRL(valores.retencoes.irrf);
+      $('#kpiCSLL').textContent = fmtBRL(valores.retencoes.csll);
+      $('#kpiPIS').textContent = fmtBRL(valores.retencoes.pis);
+      
+      // Atualiza o seletor manual
+      const finalSimplesStatus = manualSimplesNacional !== null ? manualSimplesNacional : simples_nacional_auto;
+      updateSimplesButtons(finalSimplesStatus);
+
+      // Gera e exibe o prompt
+      $('#output').textContent = generateAIPrompt(extractedData);
+      
+      const ul = $('#avisos');
+      ul.innerHTML = '';
+      extractedData.metadata.warnings.forEach(w => {
+        const li = document.createElement('li'); li.textContent = w; ul.appendChild(li);
+      });
+    }
+
+    function updateSimplesButtons(status) {
+        $$('.btn-choice').forEach(btn => btn.classList.remove('active'));
+        let targetButton;
+        if (status === true) {
+            targetButton = $('.btn-choice.sim');
+        } else if (status === false) {
+            targetButton = $('.btn-choice.nao');
+        } else {
+            targetButton = $('.btn-choice.ind');
+        }
+        if (targetButton) targetButton.classList.add('active');
+    }
+    
+    function saveSettings() {
+      const settings = {};
+      $$('.setting').forEach(el => { settings[el.id] = el.value; });
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    function loadSettings() {
+      const saved = localStorage.getItem(SETTINGS_KEY);
+      if (saved) {
+        const settings = JSON.parse(saved);
+        Object.keys(settings).forEach(key => {
+          const el = $('#' + key);
+          if (el) el.value = settings[key];
+        });
+      }
+    }
+
+    function setupEventListeners() {
+      const inputArea = $('#inputArea');
+      const fileInput = $('#fileInput');
+
+      $('#selectLink, #selectLink2').addEventListener('click', () => fileInput.click());
+      inputArea.addEventListener('click', (e) => { if(e.target === inputArea || e.target.tagName === 'P') fileInput.click(); });
+      fileInput.addEventListener('change', (e) => { if (e.target.files.length) processImageWithOCR(e.target.files[0]); });
+      inputArea.addEventListener('dragover', (e) => { e.preventDefault(); inputArea.classList.add('dragover'); });
+      inputArea.addEventListener('dragleave', () => inputArea.classList.remove('dragover'));
+      inputArea.addEventListener('drop', (e) => { e.preventDefault(); inputArea.classList.remove('dragover'); if (e.dataTransfer.files.length) processImageWithOCR(e.dataTransfer.files[0]); });
+      document.addEventListener('paste', (e) => { const file = e.clipboardData.files[0]; if (file) processImageWithOCR(file); });
+
+      $('#btnExtrair').addEventListener('click', () => {
+        extractedData = extractAll($('#input').value);
+        manualSimplesNacional = null; // Reseta o manual ao extrair novo texto
+        render();
+      });
+      $('#btnLimpar').addEventListener('click', () => {
+        $('#input').value = ''; $('#output').textContent = ''; $('#ocrStatus').innerHTML = '';
+        extractedData = extractAll('');
+        manualSimplesNacional = null;
+        render();
+      });
+      $('#btnExemplo').addEventListener('click', () => {
+        const exemplo = `VALOR TOTAL DO SERVIÇO = R$ 52,01\nValor do ISS (R$) 1,04`;
+        $('#input').value = exemplo.trim();
+        $('#btnExtrair').click();
+      });
+      $('#btnCopiar').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText($('#output').textContent);
+          const b = $('#btnCopiar'); b.textContent = 'Copiado!';
+          setTimeout(() => b.textContent = 'Copiar Prompt', 1200);
+        } catch (e) { console.error('Falha ao copiar:', e); }
+      });
+      $('#btnDownload').addEventListener('click', () => {
+        const blob = new Blob([$('#output').textContent], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'prompt-nfse.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+      
+      $$('.setting').forEach(el => {
+          el.addEventListener('change', saveSettings);
+          el.addEventListener('keyup', saveSettings);
+      });
+
+      // Event listeners para o seletor manual
+      $$('.btn-choice').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const value = btn.dataset.value;
+            if (value === 'true') manualSimplesNacional = true;
+            else if (value === 'false') manualSimplesNacional = false;
+            else manualSimplesNacional = null;
+            
+            render(); // Re-renderiza com a nova seleção manual
+        });
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+      setupEventListeners();
+      // Inicializa a renderização com estado vazio
+      extractedData = extractAll('');
+      render();
+    });
+  </script>
+</body>
+</html>
