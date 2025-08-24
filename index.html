@@ -1,296 +1,459 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Extrator NFS-e — OCR + Extração + Prompt</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
   <style>
-    :root{ --bg:#0b1220; --card:#111a2e; --muted:#8ea0c9; --accent:#5cc8ff; --ok:#18c28e; --warn:#ffb02e; --err:#ff6b6b; --border:#223151; }
-    html,body{height:100%}
-    body{margin:0;background:#0b1220;color:#e6eefc;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-    .container{max-width:1100px;margin:24px auto;padding:0 16px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:14px}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    textarea, input{width:100%;background:#0c1526;color:#e7f0ff;border:1px solid var(--border);border-radius:12px;padding:10px 12px;line-height:1.4}
-    input{height:40px}
-    .btn{background:#1e2a47;border:1px solid var(--border);color:#e7f0ff;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
-    .btn.ghost{background:transparent}
-    .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:8px}
-    .kpi .box{background:#0b1427;border:1px solid var(--border);border-radius:12px;padding:10px}
-    .kpi .box h4{margin:0 0 6px;color:#bcd0ff;font-size:12px}
-    .kpi .v{font-feature-settings:'tnum' on,'lnum' on;font-variant-numeric:tabular-nums}
-    pre.out{white-space:pre-wrap;background:#0b1423;border:1px solid var(--border);border-radius:12px;padding:12px;min-height:120px}
-    .toggle{background:#0b1427;border:1px solid var(--border);border-radius:12px;padding:10px}
-    .toggle h4{margin:0 0 6px;color:#bcd0ff;font-size:12px}
-    .btn-group{display:flex;gap:6px}
-    .btn-choice{flex:1;text-align:center;padding:6px;border-radius:8px;background:#17233e;border:1px solid var(--border);color:var(--muted);cursor:pointer}
-    .btn-choice.active.sim{background:var(--ok);border-color:var(--ok);color:#fff;box-shadow:0 0 12px rgba(24,194,142,.45)}
-    .btn-choice.active.nao{background:var(--warn);border-color:var(--warn);color:#fff;box-shadow:0 0 12px rgba(255,176,46,.45)}
-    .btn-choice.active.ind{background:var(--err);border-color:var(--err);color:#fff}
-    #dropZone{border:2px dashed var(--border);border-radius:12px;padding:12px;text-align:center;background:#0c1526;cursor:pointer}
-    #dropZone.dragover{border-color:var(--accent);background:#132344}
-    #ocrStatus{font-size:12px;color:var(--muted);min-height:22px;margin-top:6px}
-    .label{font-size:12px;color:#a9bbeb;margin-top:8px}
-    .grid2{display:grid;grid-template-columns:1fr 2fr;gap:8px}
+    body { font-family: 'Inter', sans-serif; }
+    .btn-choice.active.sim { background-color: #18c28e; border-color: #18c28e; color: #fff; box-shadow: 0 0 12px rgba(24,194,142,.45); }
+    .btn-choice.active.nao { background-color: #ffb02e; border-color: #ffb02e; color: #fff; box-shadow: 0 0 12px rgba(255,176,46,.45); }
+    .btn-choice.active.ind { background-color: #ff6b6b; border-color: #ff6b6b; color: #fff; }
   </style>
 </head>
-<body>
-  <div class="container">
-    <div class="card">
-      <div id="dropZone">Cole (Ctrl+V), arraste aqui ou clique para selecionar a imagem da NFS-e</div>
-      <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/gif" style="display:none" />
-      <div id="ocrStatus" aria-live="polite"></div>
+<body class="bg-slate-100 dark:bg-gray-900 text-slate-800 dark:text-slate-200">
 
-      <div class="label">Texto (você pode editar antes de extrair)</div>
-      <textarea id="input" placeholder="O texto extraído aparecerá aqui..."></textarea>
-
-      <div class="label">Observações (opcional: entra no prompt, ex.: descrição do serviço)</div>
-      <textarea id="obs" placeholder="Ex.: serviço referente a banho do cachorro"></textarea>
-
-      <div class="row" style="margin-top:8px">
-        <button id="btnExtrair" class="btn">Extrair Dados</button>
-        <button id="btnExemplo" class="btn ghost">Usar Exemplo</button>
-        <button id="btnCopiarPrompt" class="btn ghost">Copiar Prompt</button>
-        <button id="btnBaixarPrompt" class="btn ghost">Baixar Prompt</button>
-      </div>
-    </div>
-
-    <div class="kpi">
-      <div class="box"><h4>Valor total</h4><div id="kpiTotal" class="v">—</div></div>
-      <div class="box"><h4>Valor líquido</h4><div id="kpiLiquido" class="v">—</div></div>
-      <div class="box"><h4>ISS (retido)</h4><div id="kpiISS" class="v">—</div></div>
-      <div class="box"><h4>IRRF</h4><div id="kpiIRRF" class="v">—</div></div>
-      <div class="box"><h4>CSLL</h4><div id="kpiCSLL" class="v">—</div></div>
-      <div class="box"><h4>PIS</h4><div id="kpiPIS" class="v">—</div></div>
-      <div class="box"><h4>COFINS</h4><div id="kpiCOFINS" class="v">—</div></div>
-      <div class="box"><h4>INSS</h4><div id="kpiINSS" class="v">—</div></div>
-      <div class="box"><h4>ISS devido</h4><div id="kpiISSDev" class="v">—</div></div>
-      <div class="box"><h4>Base de cálculo</h4><div id="kpiBase" class="v">—</div></div>
-      <div class="box"><h4>Alíquota (%)</h4><div id="kpiAliq" class="v">—</div></div>
-      <div class="box"><h4>CNAE</h4><div id="kpiCNAE" class="v">—</div></div>
-    </div>
-
-    <div class="card" style="margin-top:10px">
-      <div class="label">Atividade / Código do serviço — edite quando a nota trouxer só o código</div>
-      <div class="grid2">
-        <div>
-          <div class="label">Código do Serviço</div>
-          <input id="srvCode" placeholder="Ex.: 06533" />
+  <div class="container max-w-6xl mx-auto p-4">
+    <header class="mb-6 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <img src="https://raw.githubusercontent.com/Halexandre1/PDF_PRO/main/HERBERT.jpg" alt="Logótipo" class="w-12 h-12 rounded-full object-cover border-2 border-indigo-200 dark:border-indigo-800">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800 dark:text-white text-left">Extrator NFS-e</h1>
+                <p class="text-slate-500 dark:text-slate-400 text-sm text-left">OCR + Extração + Prompt</p>
+            </div>
         </div>
-        <div>
-          <div class="label">Descrição / Atividade</div>
-          <input id="srvDesc" placeholder="Ex.: Planos de atendimento e assistência médico-veterinária" />
+        <button id="themeToggle" class="flex-shrink-0 w-10 h-10 rounded-full bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-transform hover:scale-110 shadow-md" aria-label="Alternar tema">🌙</button>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Coluna da Esquerda: Input e Controles -->
+      <div class="lg:col-span-1 space-y-6">
+        <div class="card bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
+          <div id="dropZone" class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+            <p class="font-semibold text-slate-600 dark:text-slate-300">Cole (Ctrl+V) ou clique para selecionar a imagem</p>
+          </div>
+          <input id="fileInput" type="file" accept="image/*" class="hidden" />
+          <div id="ocrStatus" class="text-sm text-slate-500 dark:text-slate-400 min-h-[20px] mt-2 text-center" aria-live="polite"></div>
+        </div>
+
+        <div class="card bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
+          <label for="input" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Texto Extraído (editável)</label>
+          <textarea id="input" class="w-full h-48 p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-sm" placeholder="O texto da imagem aparecerá aqui..."></textarea>
+        </div>
+
+        <div class="card bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
+          <label for="obs" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Observações (opcional)</label>
+          <textarea id="obs" class="w-full h-24 p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-sm" placeholder="Ex: serviço referente a banho do cachorro"></textarea>
+        </div>
+
+        <div class="card bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
+           <div class="flex flex-wrap gap-2">
+             <button id="btnExtrair" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Extrair Dados</button>
+             <button id="btnExemplo" class="flex-1 bg-slate-500 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Exemplo</button>
+           </div>
         </div>
       </div>
-    </div>
 
-    <div class="row" style="margin-top:10px">
-      <div class="toggle" style="flex:1">
-        <h4>Simples Nacional</h4>
-        <div class="btn-group">
-          <div class="btn-choice sim" data-key="simples" data-value="true">Sim</div>
-          <div class="btn-choice nao" data-key="simples" data-value="false">Não</div>
-          <div class="btn-choice ind" data-key="simples" data-value="null">?</div>
+      <!-- Coluna da Direita: Resultados e Prompt -->
+      <div class="lg:col-span-2 space-y-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Valor total</h4><div id="kpiTotal" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Valor líquido</h4><div id="kpiLiquido" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">ISS (retido)</h4><div id="kpiISS" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">IRRF</h4><div id="kpiIRRF" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">CSLL</h4><div id="kpiCSLL" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">PIS</h4><div id="kpiPIS" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">COFINS</h4><div id="kpiCOFINS" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">INSS</h4><div id="kpiINSS" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">ISS devido</h4><div id="kpiISSDev" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Base cálculo</h4><div id="kpiBase" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Alíquota (%)</h4><div id="kpiAliq" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">CNAE</h4><div id="kpiCNAE" class="text-lg font-bold">—</div></div>
+        </div>
+
+        <div class="card bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Atividade / Código do serviço (editável)</label>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input id="srvCode" class="md:col-span-1 w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-sm" placeholder="Código" />
+            <input id="srvDesc" class="md:col-span-2 w-full p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-sm" placeholder="Descrição da Atividade" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="toggle bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
+            <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Simples Nacional</h4>
+            <div class="flex gap-2">
+              <div class="btn-choice sim flex-1 text-center p-2 rounded-lg bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 cursor-pointer" data-key="simples" data-value="true">Sim</div>
+              <div class="btn-choice nao flex-1 text-center p-2 rounded-lg bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 cursor-pointer" data-key="simples" data-value="false">Não</div>
+              <div class="btn-choice ind flex-1 text-center p-2 rounded-lg bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 cursor-pointer" data-key="simples" data-value="null">?</div>
+            </div>
+          </div>
+          <div class="toggle bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
+            <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Tomador é Condomínio</h4>
+            <div class="flex gap-2">
+                <div class="btn-choice sim flex-1 text-center p-2 rounded-lg bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 cursor-pointer" data-key="condominio" data-value="true">Sim</div>
+                <div class="btn-choice nao flex-1 text-center p-2 rounded-lg bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 cursor-pointer" data-key="condominio" data-value="false">Não</div>
+                <div class="btn-choice ind flex-1 text-center p-2 rounded-lg bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 cursor-pointer" data-key="condominio" data-value="null">?</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
+            <div class="flex justify-between items-center mb-2">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Prompt Gerado</label>
+                <div class="flex gap-2">
+                    <button id="btnCopiarPrompt" class="bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-bold py-1 px-3 rounded-lg transition-colors text-xs">Copiar</button>
+                    <button id="btnBaixarPrompt" class="bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-bold py-1 px-3 rounded-lg transition-colors text-xs">Baixar</button>
+                </div>
+            </div>
+          <pre id="output" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-sm whitespace-pre-wrap min-h-[120px]"></pre>
         </div>
       </div>
-      <div class="toggle" style="flex:1">
-        <h4>Condomínio</h4>
-        <div class="btn-group">
-          <div class="btn-choice sim" data-key="condominio" data-value="true">Sim</div>
-          <div class="btn-choice nao" data-key="condominio" data-value="false">Não</div>
-          <div class="btn-choice ind" data-key="condominio" data-value="null">?</div>
-        </div>
-      </div>
     </div>
-
-    <div class="label" style="margin-top:10px">Prompt Gerado</div>
-    <pre id="output" class="out"></pre>
-
+    <footer id="signature" class="text-center mt-6 text-sm text-slate-500 dark:text-slate-400"></footer>
   </div>
 
   <script>
-    const $ = s=>document.querySelector(s);
-    const $$ = s=>Array.from(document.querySelectorAll(s));
+    /**
+     * @file Extrator NFS-e - Versão Refatorada
+     * @author HAlexandre
+     * @version 2.0.0
+     */
 
-    let manual = { simples:null, condominio:null };
-    let lastData = null;
-    let touchedManualAtividade = false; // evita sobrescrever quando usuário editou
+    // --- Módulo de Estado da Aplicação ---
+    const AppState = {
+      manualToggles: { simples: null, condominio: null },
+      lastExtractedData: null,
+      hasManuallyEditedActivity: false,
+    };
 
-    // ===== Util =====
-    const fmtBRL = n => (n==null||isNaN(n))? '—' : n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-    const normalize = str => (str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
-    function parseCurrency(raw){ if(!raw) return null; let s=String(raw).replace(/R\$\s?/gi,'').replace(/\s/g,''); const hasComma=/,\d{2}$/.test(s); s = hasComma? s.replace(/\./g,'').replace(',', '.') : s.replace(/,/g,''); const num=Number(s.replace(/[^0-9.\-]/g,'')); return Number.isFinite(num)? Number(num.toFixed(2)):null; }
+    // --- Módulo de Utilitários ---
+    const Utils = {
+      fmtBRL: n => (n == null || isNaN(n)) ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+      normalize: str => (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase(),
+      parseCurrency(raw) {
+        if (!raw) return null;
+        let s = String(raw).replace(/R\$\s?/gi, '').replace(/\s/g, '');
+        const hasComma = /,\d{2}$/.test(s);
+        s = hasComma ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+        const num = Number(s.replace(/[^0-9.\-]/g, ''));
+        return Number.isFinite(num) ? Number(num.toFixed(2)) : null;
+      }
+    };
 
-    // ===== OCR =====
-    function ocrAvailable(){ return window.Tesseract && typeof Tesseract.recognize==='function'; }
-    async function preprocessImage(file){
-      const url = URL.createObjectURL(file);
-      try{
-        const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
-        const canvas=document.createElement('canvas'); const ctx=canvas.getContext('2d',{willReadFrequently:true});
-        const scale=2.0; canvas.width=img.width*scale; canvas.height=img.height*scale; ctx.drawImage(img,0,0,canvas.width,canvas.height);
-        const data=ctx.getImageData(0,0,canvas.width,canvas.height); const a=data.data; for(let i=0;i<a.length;i+=4){ const g=.299*a[i]+.587*a[i+1]+.114*a[i+2]; a[i]=a[i+1]=a[i+2]=g; } ctx.putImageData(data,0,0);
-        return canvas.toDataURL('image/png');
-      } finally{ URL.revokeObjectURL(url); }
-    }
-    async function processImageWithOCR(file){
-      const status = $('#ocrStatus');
-      if(!file || !file.type.startsWith('image/')){ status.textContent='Envie uma imagem (PNG/JPG/WEBP/BMP/GIF).'; return; }
-      if(!ocrAvailable()){ status.textContent='OCR indisponível; cole o texto manualmente.'; return; }
-      status.innerHTML='Preparando imagem...';
-      try{
-        const processed = await preprocessImage(file);
-        status.innerHTML = '<progress id="p" value="0" max="1"></progress> Reconhecendo...';
-        const p = $('#p');
-        const { data:{ text } } = await Tesseract.recognize(processed,'por+eng',{ logger:m=>{ if(m.status==='recognizing text'){ p.value=m.progress; } } });
-        $('#input').value = text; status.textContent='Texto extraído!';
-      }catch(e){ console.error('Erro no OCR:', e); status.textContent='Falha no OCR. Cole o texto manualmente.'; }
-    }
+    // --- Módulo de UI ---
+    const UI = {
+      dom: {
+        dropZone: document.getElementById('dropZone'),
+        fileInput: document.getElementById('fileInput'),
+        ocrStatus: document.getElementById('ocrStatus'),
+        input: document.getElementById('input'),
+        obs: document.getElementById('obs'),
+        btnExtrair: document.getElementById('btnExtrair'),
+        btnExemplo: document.getElementById('btnExemplo'),
+        btnCopiarPrompt: document.getElementById('btnCopiarPrompt'),
+        btnBaixarPrompt: document.getElementById('btnBaixarPrompt'),
+        output: document.getElementById('output'),
+        srvCode: document.getElementById('srvCode'),
+        srvDesc: document.getElementById('srvDesc'),
+        kpiElements: {
+          kpiTotal: document.getElementById('kpiTotal'), kpiLiquido: document.getElementById('kpiLiquido'),
+          kpiISS: document.getElementById('kpiISS'), kpiIRRF: document.getElementById('kpiIRRF'),
+          kpiCSLL: document.getElementById('kpiCSLL'), kpiPIS: document.getElementById('kpiPIS'),
+          kpiCOFINS: document.getElementById('kpiCOFINS'), kpiINSS: document.getElementById('kpiINSS'),
+          kpiISSDev: document.getElementById('kpiISSDev'), kpiBase: document.getElementById('kpiBase'),
+          kpiAliq: document.getElementById('kpiAliq'), kpiCNAE: document.getElementById('kpiCNAE'),
+        },
+        toggleButtons: document.querySelectorAll('.btn-choice'),
+        themeToggle: document.getElementById('themeToggle'),
+        signature: document.getElementById('signature'),
+      },
 
-    // ===== EXTRAÇÃO =====
-    function extractISSFields(t){
-      const text = (t||'').replace(/\s+/g,' ');
-      const base  = /Base\s+de\s+C[aá]lculo\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
-      const aliq1 = /Al[ií]quota\s*\(%\)\s*([\d.,]+)/i.exec(text) || /Al[ií]quota[^\d%]*([\d.,]+)\s*%/i.exec(text);
-      const valor = /Valor\s+do\s+ISS\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
-      const cred  = /Cr[eé]dito\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
-      return {
-        base_calculo: base? parseCurrency(base[1]):null,
-        aliquota_percentual: aliq1? parseCurrency(aliq1[1]):null,
-        valor_iss: valor? parseCurrency(valor[1]):null,
-        credito: cred? parseCurrency(cred[1]):null
-      };
-    }
-    function extractCNAE(text){
-      const m = /(cnae\s*[:#-]?\s*)?(\d{2}\.\d{2}-\d\/?\d{2}|\d{7}\/\d{2})/i.exec(text);
-      return m? m[2].replace(/\s+/g,'').trim():null;
-    }
-    function splitServiceLine(s){
-      // tenta separar "06533 - Descrição" em código + descrição
-      const m = s.match(/(\d{4,5})\s*[-–—]\s*(.+)/);
-      if(m) return { code:m[1], desc:m[2].trim() };
-      // se só tiver o código
-      const m2 = s.match(/\b(\d{4,5})\b/);
-      if(m2) return { code:m2[1], desc:'' };
-      return { code:'', desc:s.trim() };
-    }
-    function extractAtividade(text){
-      const lines = (text||'').split(/\r?\n/);
-      for(const l of lines){
-        if(/c[oó]digo\s+do\s+servi[cç]o/i.test(l) || /servi[cç]o\s*:/i.test(l)){
-          return splitServiceLine(l.replace(/^.*?[:\-]\s*/,'').trim());
+      setStatus(message) { this.dom.ocrStatus.innerHTML = message; },
+
+      renderKPIs(data) {
+        this.dom.kpiElements.kpiTotal.textContent = Utils.fmtBRL(data.valores.valor_total);
+        this.dom.kpiElements.kpiLiquido.textContent = Utils.fmtBRL(data.valores.valor_liquido);
+        this.dom.kpiElements.kpiISS.textContent = Utils.fmtBRL(data.valores.retencoes.iss);
+        this.dom.kpiElements.kpiIRRF.textContent = Utils.fmtBRL(data.valores.retencoes.irrf);
+        this.dom.kpiElements.kpiCSLL.textContent = Utils.fmtBRL(data.valores.retencoes.csll);
+        this.dom.kpiElements.kpiPIS.textContent = Utils.fmtBRL(data.valores.retencoes.pis);
+        this.dom.kpiElements.kpiCOFINS.textContent = Utils.fmtBRL(data.valores.retencoes.cofins);
+        this.dom.kpiElements.kpiINSS.textContent = Utils.fmtBRL(data.valores.retencoes.inss);
+        this.dom.kpiElements.kpiISSDev.textContent = Utils.fmtBRL(data.apuracao_iss.valor_iss);
+        this.dom.kpiElements.kpiBase.textContent = Utils.fmtBRL(data.apuracao_iss.base_calculo);
+        this.dom.kpiElements.kpiAliq.textContent = data.apuracao_iss.aliquota_percentual != null ? `${data.apuracao_iss.aliquota_percentual}%` : '—';
+        this.dom.kpiElements.kpiCNAE.textContent = data.cnae || '—';
+      },
+
+      updateActivityFields(data) {
+        if (!AppState.hasManuallyEditedActivity) {
+          this.dom.srvCode.value = data.atividade.code || '';
+          this.dom.srvDesc.value = data.atividade.desc || '';
+        }
+      },
+
+      updatePrompt(prompt) { this.dom.output.textContent = prompt; },
+
+      loadTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+          this.dom.themeToggle.textContent = '☀️';
+        } else {
+          this.dom.themeToggle.textContent = '🌙';
+        }
+      },
+
+      setSignature() {
+        this.dom.signature.innerHTML = `<p>Feito por HAlexandre © ${new Date().getFullYear()}</p>`;
+      }
+    };
+
+    // --- Módulo de OCR ---
+    const OCR = {
+      async processImage(file) {
+        if (!file || !file.type.startsWith('image/')) {
+          UI.setStatus('Envie uma imagem válida.');
+          return;
+        }
+        if (!window.Tesseract) {
+          UI.setStatus('OCR indisponível. Cole o texto manualmente.');
+          return;
+        }
+
+        UI.setStatus('Preparando imagem...');
+        try {
+          const processed = await this.preprocessImage(file);
+          UI.setStatus('<progress id="p" value="0" max="1" class="w-full"></progress> Reconhecendo...');
+          const { data: { text } } = await Tesseract.recognize(processed, 'por+eng', {
+            logger: m => { if (m.status === 'recognizing text') document.getElementById('p').value = m.progress; }
+          });
+          UI.dom.input.value = text;
+          UI.setStatus('Texto extraído com sucesso!');
+        } catch (e) {
+          console.error('Erro no OCR:', e);
+          UI.setStatus('Falha no OCR. Cole o texto manualmente.');
+        }
+      },
+
+      async preprocessImage(file) {
+        const url = URL.createObjectURL(file);
+        try {
+          const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          const scale = 2.0;
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const a = data.data;
+          for (let i = 0; i < a.length; i += 4) {
+            const g = .299 * a[i] + .587 * a[i + 1] + .114 * a[i + 2];
+            a[i] = a[i + 1] = a[i + 2] = g;
+          }
+          ctx.putImageData(data, 0, 0);
+          return canvas.toDataURL('image/png');
+        } finally {
+          URL.revokeObjectURL(url);
         }
       }
-      const m = /(\d{4,5})\s*[-–—]\s*([^\n]{3,})/.exec(text);
-      if(m) return { code:m[1], desc:m[2].trim() };
-      return { code:'', desc:'' };
-    }
-    function extractRetencoes(text){
-      const L = (text||'').split(/\r?\n/);
-      const out = { iss:null, irrf:null, csll:null, pis:null, cofins:null, inss:null };
-      const map = [ ['iss','iss retid'], ['irrf','irrf'], ['csll','csll'], ['pis','pis'], ['cofins','cofins'], ['inss','inss'] ];
-      const rxMoney = /(?:R\$\s*)?(-?\d{1,3}(?:[.\s]\d{3})*(?:,\d{2})|-?\d+(?:[.,]\d{2})?)/;
-      for(const line of L){
-        const n = normalize(line);
-        for(const [k,needle] of map){ if(n.includes(needle)){ const m=line.match(rxMoney); if(m) out[k]=parseCurrency(m[0]); } }
+    };
+
+    // --- Módulo de Extração de Dados ---
+    const Extractor = {
+      extractAll(text) {
+        const total = /VALOR\s+TOTAL\s+DO\s+SERVI[ÇC]O\s*=\s*R\$\s*([\d.,]+)/i.exec(text);
+        const liquidoLine = (text || '').split(/\r?\n/).find(l => /valor\s+l[ií]quido(\s+a\s+receber)?/i.test(l));
+        const liquido = liquidoLine ? (liquidoLine.match(/(?:R\$\s*)?[\d.,]+/) || [])[0] : null;
+        const iss = this.extractISSFields(text);
+        const cnae = this.extractCNAE(text);
+        const atv = this.extractAtividade(text);
+        const ret = this.extractRetencoes(text);
+        const total_ret = Object.values(ret).filter(v => typeof v === 'number').reduce((a, b) => a + b, 0);
+        let liquidoNum = liquido ? Utils.parseCurrency(liquido) : null;
+        if (liquidoNum == null && total) {
+          liquidoNum = Number((Utils.parseCurrency(total[1]) - (total_ret || 0)).toFixed(2));
+        }
+        return {
+          cnae, atividade: atv,
+          valores: { valor_total: total ? Utils.parseCurrency(total[1]) : null, valor_liquido: liquidoNum, retencoes: { ...ret, total_retencoes: Number.isFinite(total_ret) ? Number(total_ret.toFixed(2)) : null } },
+          apuracao_iss: iss
+        };
+      },
+      extractISSFields(t) {
+        const text = (t || '').replace(/\s+/g, ' ');
+        const base = /Base\s+de\s+C[aá]lculo\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
+        const aliq1 = /Al[ií]quota\s*\(%\)\s*([\d.,]+)/i.exec(text) || /Al[ií]quota[^\d%]*([\d.,]+)\s*%/i.exec(text);
+        const valor = /Valor\s+do\s+ISS\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
+        return { base_calculo: base ? Utils.parseCurrency(base[1]) : null, aliquota_percentual: aliq1 ? Utils.parseCurrency(aliq1[1]) : null, valor_iss: valor ? Utils.parseCurrency(valor[1]) : null };
+      },
+      extractCNAE(text) {
+        const m = /(cnae\s*[:#-]?\s*)?(\d{2}\.\d{2}-\d\/?\d{2}|\d{7}\/\d{2})/i.exec(text);
+        return m ? m[2].replace(/\s+/g, '').trim() : null;
+      },
+      extractAtividade(text) {
+        const lines = (text || '').split(/\r?\n/);
+        for (const l of lines) {
+          if (/c[oó]digo\s+do\s+servi[cç]o/i.test(l) || /servi[cç]o\s*:/i.test(l)) {
+            return this.splitServiceLine(l.replace(/^.*?[:\-]\s*/, '').trim());
+          }
+        }
+        const m = /(\d{4,5})\s*[-–—]\s*([^\n]{3,})/.exec(text);
+        return m ? { code: m[1], desc: m[2].trim() } : { code: '', desc: '' };
+      },
+      splitServiceLine(s) {
+        const m = s.match(/(\d{4,5})\s*[-–—]\s*(.+)/);
+        if (m) return { code: m[1], desc: m[2].trim() };
+        const m2 = s.match(/\b(\d{4,5})\b/);
+        return m2 ? { code: m2[1], desc: '' } : { code: '', desc: s.trim() };
+      },
+      extractRetencoes(text) {
+        const L = (text || '').split(/\r?\n/);
+        const out = { iss: null, irrf: null, csll: null, pis: null, cofins: null, inss: null };
+        const map = [['iss', 'iss retid'], ['irrf', 'irrf'], ['csll', 'csll'], ['pis', 'pis'], ['cofins', 'cofins'], ['inss', 'inss']];
+        const rxMoney = /(?:R\$\s*)?(-?\d{1,3}(?:[.\s]\d{3})*(?:,\d{2})|-?\d+(?:[.,]\d{2})?)/;
+        for (const line of L) {
+          const n = Utils.normalize(line);
+          for (const [k, needle] of map) {
+            if (n.includes(needle)) {
+              const m = line.match(rxMoney);
+              if (m) out[k] = Utils.parseCurrency(m[0]);
+            }
+          }
+        }
+        return out;
       }
-      return out;
-    }
-    function extractAll(text){
-      const total = /VALOR\s+TOTAL\s+DO\s+SERVI[ÇC]O\s*=\s*R\$\s*([\d.,]+)/i.exec(text);
-      const liquidoLine = (text||'').split(/\r?\n/).find(l=>/valor\s+l[ií]quido(\s+a\s+receber)?/i.test(l));
-      const liquido = liquidoLine? (liquidoLine.match(/(?:R\$\s*)?[\d.,]+/)||[])[0] : null;
-      const iss = extractISSFields(text);
-      const cnae = extractCNAE(text);
-      const atv = extractAtividade(text);
-      const ret = extractRetencoes(text);
-      const total_ret = [ret.iss,ret.irrf,ret.csll,ret.pis,ret.cofins,ret.inss].filter(v=>typeof v==='number').reduce((a,b)=>a+b,0);
-      let liquidoNum = liquido? parseCurrency(liquido) : null;
-      if(liquidoNum==null && total){ liquidoNum = Number((parseCurrency(total[1]) - (total_ret||0)).toFixed(2)); }
-      return {
-        cnae,
-        atividade: atv, // {code, desc}
-        valores:{ valor_total: total? parseCurrency(total[1]):null, valor_liquido: liquidoNum, retencoes:{...ret, total_retencoes: Number.isFinite(total_ret)? Number(total_ret.toFixed(2)): null } },
-        apuracao_iss: iss
-      };
-    }
+    };
 
-    // ===== PROMPT =====
-    function buildPrompt(d){
-      const ret = d.valores.retencoes; const items=[];
-      if(ret.iss) items.push(`ISS retido ${fmtBRL(ret.iss)}`);
-      if(ret.irrf) items.push(`IRRF ${fmtBRL(ret.irrf)}`);
-      if(ret.csll) items.push(`CSLL ${fmtBRL(ret.csll)}`);
-      if(ret.pis) items.push(`PIS ${fmtBRL(ret.pis)}`);
-      if(ret.cofins) items.push(`COFINS ${fmtBRL(ret.cofins)}`);
-      if(ret.inss) items.push(`INSS ${fmtBRL(ret.inss)}`);
-      const retStr = items.length? items.join(', ') : 'sem retenções informadas';
+    // --- Módulo de Construção do Prompt ---
+    const PromptBuilder = {
+      build(d) {
+        const ret = d.valores.retencoes;
+        const items = [];
+        if (ret.iss) items.push(`ISS retido ${Utils.fmtBRL(ret.iss)}`);
+        if (ret.irrf) items.push(`IRRF ${Utils.fmtBRL(ret.irrf)}`);
+        if (ret.csll) items.push(`CSLL ${Utils.fmtBRL(ret.csll)}`);
+        if (ret.pis) items.push(`PIS ${Utils.fmtBRL(ret.pis)}`);
+        if (ret.cofins) items.push(`COFINS ${Utils.fmtBRL(ret.cofins)}`);
+        if (ret.inss) items.push(`INSS ${Utils.fmtBRL(ret.inss)}`);
+        const retStr = items.length ? items.join(', ') : 'sem retenções informadas';
 
-      const simplesStr = manual.simples===true? 'prestador optante pelo Simples Nacional' : manual.simples===false? 'prestador não optante pelo Simples Nacional' : 'sem informação de Simples';
-      let condStr = '';
-      if(manual.condominio===true) condStr = ' O tomador é CONDOMÍNIO.';
-      else if(manual.condominio===false) condStr = ' O tomador NÃO é condomínio.';
+        const simplesStr = AppState.manualToggles.simples === true ? 'prestador optante pelo Simples Nacional' : AppState.manualToggles.simples === false ? 'prestador não optante pelo Simples Nacional' : 'sem informação de Simples';
+        let condStr = AppState.manualToggles.condominio === true ? ' O tomador é CONDOMÍNIO.' : AppState.manualToggles.condominio === false ? ' O tomador NÃO é condomínio.' : '';
 
-      const issDev = d.apuracao_iss?.valor_iss; const aliq = d.apuracao_iss?.aliquota_percentual; const base = d.apuracao_iss?.base_calculo;
-      const issStr = issDev!=null? `; ISS devido ${fmtBRL(issDev)}${aliq!=null?` (alíquota ${aliq}%)`:''}${base!=null?` sobre base ${fmtBRL(base)}`:''}`:'';
+        const issDev = d.apuracao_iss?.valor_iss;
+        const aliq = d.apuracao_iss?.aliquota_percentual;
+        const base = d.apuracao_iss?.base_calculo;
+        const issStr = issDev != null ? `; ISS devido ${Utils.fmtBRL(issDev)}${aliq != null ? ` (alíquota ${aliq}%)` : ''}${base != null ? ` sobre base ${Utils.fmtBRL(base)}` : ''}` : '';
 
-      const code = ($('#srvCode').value||d.atividade.code||'').trim();
-      const desc = ($('#srvDesc').value||d.atividade.desc||'').trim();
-      const atividadeStr = (code||desc)? `Código do serviço ${code||'[não informado]'}${desc?` – ${desc}`:''}` : 'Atividade não informada';
+        const code = (UI.dom.srvCode.value || d.atividade.code || '').trim();
+        const desc = (UI.dom.srvDesc.value || d.atividade.desc || '').trim();
+        const atividadeStr = (code || desc) ? `Código do serviço ${code || '[não informado]'}${desc ? ` – ${desc}` : ''}` : 'Atividade não informada';
 
-      const cnaeStr = d.cnae? `CNAE ${d.cnae}` : 'CNAE não informado';
-      const obs = ($('#obs').value||'').trim(); const obsStr = obs? ` Observações: ${obs}` : '';
+        const cnaeStr = d.cnae ? `CNAE ${d.cnae}` : 'CNAE não informado';
+        const obs = (UI.dom.obs.value || '').trim();
+        const obsStr = obs ? ` Observações: ${obs}` : '';
 
-      return `Analise a NFS-e: valor total ${fmtBRL(d.valores.valor_total)}, ${retStr}. ${simplesStr}${issStr}. ${cnaeStr}. ${atividadeStr}.${condStr}${obsStr}\nVerifique se as retenções estão corretas para esta operação e explique eventuais divergências.`;
-    }
+        return `Analise a NFS-e: valor total ${Utils.fmtBRL(d.valores.valor_total)}, ${retStr}. ${simplesStr}${issStr}. ${cnaeStr}. ${atividadeStr}.${condStr}${obsStr}\nVerifique se as retenções estão corretas para esta operação e explique eventuais divergências.`;
+      }
+    };
 
-    function render(d){
-      // KPIs
-      $('#kpiTotal').textContent   = fmtBRL(d.valores.valor_total);
-      $('#kpiLiquido').textContent = fmtBRL(d.valores.valor_liquido);
-      $('#kpiISS').textContent     = fmtBRL(d.valores.retencoes.iss);
-      $('#kpiIRRF').textContent    = fmtBRL(d.valores.retencoes.irrf);
-      $('#kpiCSLL').textContent    = fmtBRL(d.valores.retencoes.csll);
-      $('#kpiPIS').textContent     = fmtBRL(d.valores.retencoes.pis);
-      $('#kpiCOFINS').textContent  = fmtBRL(d.valores.retencoes.cofins);
-      $('#kpiINSS').textContent    = fmtBRL(d.valores.retencoes.inss);
-      $('#kpiISSDev').textContent  = fmtBRL(d.apuracao_iss.valor_iss);
-      $('#kpiBase').textContent    = fmtBRL(d.apuracao_iss.base_calculo);
-      $('#kpiAliq').textContent    = d.apuracao_iss.aliquota_percentual!=null? `${d.apuracao_iss.aliquota_percentual}%` : '—';
-      $('#kpiCNAE').textContent    = d.cnae || '—';
+    // --- Módulo de Eventos ---
+    const Events = {
+      setup() {
+        const { dom } = UI;
+        dom.dropZone.addEventListener('click', () => dom.fileInput.click());
+        dom.dropZone.addEventListener('dragover', e => { e.preventDefault(); dom.dropZone.classList.add('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20'); });
+        dom.dropZone.addEventListener('dragleave', () => dom.dropZone.classList.remove('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20'));
+        dom.dropZone.addEventListener('drop', e => {
+          e.preventDefault();
+          dom.dropZone.classList.remove('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20');
+          const f = e.dataTransfer.files[0];
+          if (f) OCR.processImage(f);
+        });
+        dom.fileInput.addEventListener('change', e => { if (e.target.files[0]) OCR.processImage(e.target.files[0]); });
+        document.addEventListener('paste', e => {
+          try {
+            const items = e.clipboardData?.items ? Array.from(e.clipboardData.items) : [];
+            const img = items.find(it => it.type?.startsWith('image/'));
+            const f = img ? img.getAsFile() : (e.clipboardData.files?.[0]);
+            if (f) OCR.processImage(f);
+          } catch (err) { console.error('paste error', err); }
+        });
 
-      // Preenche campos editáveis (sem sobrescrever se usuário já mexeu)
-      if(!touchedManualAtividade){ $('#srvCode').value = d.atividade.code || ''; $('#srvDesc').value = d.atividade.desc || ''; }
+        dom.btnExtrair.addEventListener('click', () => {
+          AppState.hasManuallyEditedActivity = false;
+          AppState.lastExtractedData = Extractor.extractAll(dom.input.value || '');
+          UI.renderKPIs(AppState.lastExtractedData);
+          UI.updateActivityFields(AppState.lastExtractedData);
+          UI.updatePrompt(PromptBuilder.build(AppState.lastExtractedData));
+        });
 
-      $('#output').textContent = buildPrompt(d);
-    }
+        dom.btnExemplo.addEventListener('click', () => {
+          const exemplo = `VALOR TOTAL DO SERVIÇO = R$ 52,01\nINSS (R$) -\t IRRF (R$) -\t CSLL (R$) -\t COFINS (R$) -\t PIS/PASEP (R$) -\nCódigo do Serviço 06533 - Planos de atendimento e assistência médico-veterinária.\nValor Total das Deduções (R$) 0,00  Base de Cálculo (R$) 52,01  Alíquota (%) 2,00  Valor do ISS (R$) 1,04  Crédito (R$) 0,00\nCNAE 86.90-9/99`;
+          dom.input.value = exemplo;
+          dom.btnExtrair.click();
+        });
 
-    // ===== Eventos =====
-    function setup(){
-      const drop = $('#dropZone'); const file = $('#fileInput');
-      drop.addEventListener('click', ()=> file.click());
-      drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.classList.add('dragover'); });
-      drop.addEventListener('dragleave', ()=> drop.classList.remove('dragover'));
-      drop.addEventListener('drop', e=>{ e.preventDefault(); drop.classList.remove('dragover'); const f=e.dataTransfer.files[0]; if(f) processImageWithOCR(f); });
-      file.addEventListener('change', e=>{ if(e.target.files[0]) processImageWithOCR(e.target.files[0]); });
-      document.addEventListener('paste', e=>{ try{ const items = e.clipboardData && e.clipboardData.items? Array.from(e.clipboardData.items): []; const img = items.find(it=> it.type && it.type.startsWith('image/')); const f = img? img.getAsFile() : (e.clipboardData.files && e.clipboardData.files[0]); if(f) processImageWithOCR(f); }catch(err){ console.error('paste error',err); } });
+        dom.btnCopiarPrompt.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(dom.output.textContent);
+            const b = dom.btnCopiarPrompt;
+            b.textContent = 'Copiado!';
+            setTimeout(() => b.textContent = 'Copiar', 1200);
+          } catch (e) { console.error(e); }
+        });
 
-      $('#btnExtrair').addEventListener('click', ()=>{ touchedManualAtividade=false; lastData = extractAll($('#input').value||''); render(lastData); });
-      $('#btnExemplo').addEventListener('click', ()=>{ const exemplo = `VALOR TOTAL DO SERVIÇO = R$ 52,01\nINSS (R$) -\t IRRF (R$) -\t CSLL (R$) -\t COFINS (R$) -\t PIS/PASEP (R$) -\nCódigo do Serviço 06533 - Planos de atendimento e assistência médico-veterinária.\nValor Total das Deduções (R$) 0,00  Base de Cálculo (R$) 52,01  Alíquota (%) 2,00  Valor do ISS (R$) 1,04  Crédito (R$) 0,00\nCNAE 86.90-9/99`; $('#input').value = exemplo; $('#btnExtrair').click(); });
-      $('#btnCopiarPrompt').addEventListener('click', async()=>{ try{ await navigator.clipboard.writeText($('#output').textContent); const b=$('#btnCopiarPrompt'); b.textContent='Copiado!'; setTimeout(()=>b.textContent='Copiar Prompt',1200);}catch(e){console.error(e);} });
-      $('#btnBaixarPrompt').addEventListener('click', ()=>{ const blob=new Blob([$('#output').textContent],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='prompt-nfse.txt'; a.click(); URL.revokeObjectURL(a.href); });
+        dom.btnBaixarPrompt.addEventListener('click', () => {
+          const blob = new Blob([dom.output.textContent], { type: 'text/plain' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'prompt-nfse.txt';
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
 
-      // toggles
-      $$('.btn-choice').forEach(btn=>{ btn.addEventListener('click', ()=>{ const k=btn.dataset.key; const v=btn.dataset.value; manual[k] = (v==='true')?true : (v==='false')?false : null; btn.parentElement.querySelectorAll('.btn-choice').forEach(b=>b.classList.remove('active','sim','nao','ind')); btn.classList.add('active', v==='true'?'sim': v==='false'?'nao':'ind'); if(lastData) $('#output').textContent = buildPrompt(lastData); }); btn.tabIndex=0; btn.addEventListener('keyup',e=>{ if(e.key==='Enter'||e.key===' ') btn.click();}); });
+        dom.toggleButtons.forEach(btn => {
+          btn.addEventListener('click', () => {
+            const { key, value } = btn.dataset;
+            AppState.manualToggles[key] = (value === 'true') ? true : (value === 'false') ? false : null;
+            btn.parentElement.querySelectorAll('.btn-choice').forEach(b => b.classList.remove('active', 'sim', 'nao', 'ind'));
+            btn.classList.add('active', value === 'true' ? 'sim' : value === 'false' ? 'nao' : 'ind');
+            if (AppState.lastExtractedData) UI.updatePrompt(PromptBuilder.build(AppState.lastExtractedData));
+          });
+        });
 
-      // edição manual de atividade: atualiza prompt sem perder o que foi digitado
-      $('#srvCode').addEventListener('input', ()=>{ touchedManualAtividade=true; if(lastData) $('#output').textContent = buildPrompt(lastData); });
-      $('#srvDesc').addEventListener('input', ()=>{ touchedManualAtividade=true; if(lastData) $('#output').textContent = buildPrompt(lastData); });
-      $('#obs').addEventListener('input', ()=>{ if(lastData) $('#output').textContent = buildPrompt(lastData); });
-    }
+        const updatePromptOnInput = () => { if (AppState.lastExtractedData) UI.updatePrompt(PromptBuilder.build(AppState.lastExtractedData)); };
+        dom.srvCode.addEventListener('input', () => { AppState.hasManuallyEditedActivity = true; updatePromptOnInput(); });
+        dom.srvDesc.addEventListener('input', () => { AppState.hasManuallyEditedActivity = true; updatePromptOnInput(); });
+        dom.obs.addEventListener('input', updatePromptOnInput);
 
-    document.addEventListener('DOMContentLoaded', setup);
+        dom.themeToggle.addEventListener('click', () => {
+          document.documentElement.classList.toggle('dark');
+          const isDark = document.documentElement.classList.contains('dark');
+          localStorage.setItem('theme', isDark ? 'dark' : 'light');
+          dom.themeToggle.textContent = isDark ? '☀️' : '🌙';
+        });
+      }
+    };
+
+    // --- Inicialização ---
+    document.addEventListener('DOMContentLoaded', () => {
+      Events.setup();
+      UI.loadTheme();
+      UI.setSignature();
+    });
   </script>
 </body>
 </html>
