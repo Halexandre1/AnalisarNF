@@ -18,6 +18,21 @@
     .btn-choice.active.sim { background-color: #18c28e; border-color: #18c28e; color: #fff; box-shadow: 0 0 12px rgba(24,194,142,.45); }
     .btn-choice.active.nao { background-color: #ffb02e; border-color: #ffb02e; color: #fff; box-shadow: 0 0 12px rgba(255,176,46,.45); }
     .btn-choice.active.ind { background-color: #ff6b6b; border-color: #ff6b6b; color: #fff; }
+    /* Estilo para os campos de KPI editáveis */
+    .kpi-input {
+        background-color: transparent;
+        border: none;
+        text-align: center;
+        padding: 0;
+        width: 100%;
+        color: inherit; /* Herda a cor do texto do modo claro/escuro */
+    }
+    .kpi-input:focus {
+        outline: none;
+        box-shadow: none;
+        background-color: rgba(79, 70, 229, 0.1); /* Um leve destaque ao focar */
+        border-radius: 4px;
+    }
   </style>
 </head>
 <body class="bg-slate-100 dark:bg-gray-900 text-slate-800 dark:text-slate-200">
@@ -74,18 +89,18 @@
       <!-- Coluna da Direita: Resultados e Prompt -->
       <div class="lg:col-span-2 space-y-6">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Valor total</h4><div id="kpiTotal" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Valor líquido</h4><div id="kpiLiquido" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">ISS (retido)</h4><div id="kpiISS" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">IRRF</h4><div id="kpiIRRF" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">CSLL</h4><div id="kpiCSLL" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">PIS</h4><div id="kpiPIS" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">COFINS</h4><div id="kpiCOFINS" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">INSS</h4><div id="kpiINSS" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">ISS devido</h4><div id="kpiISSDev" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Base cálculo</h4><div id="kpiBase" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Alíquota (%)</h4><div id="kpiAliq" class="text-lg font-bold">—</div></div>
-            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">CNAE</h4><div id="kpiCNAE" class="text-lg font-bold">—</div></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Valor total</h4><input id="kpiTotal" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Valor líquido</h4><input id="kpiLiquido" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">ISS (retido)</h4><input id="kpiISS" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">IRRF</h4><input id="kpiIRRF" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">CSLL</h4><input id="kpiCSLL" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">PIS</h4><input id="kpiPIS" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">COFINS</h4><input id="kpiCOFINS" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">INSS</h4><input id="kpiINSS" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">ISS devido</h4><input id="kpiISSDev" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Base cálculo</h4><input id="kpiBase" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Alíquota (%)</h4><input id="kpiAliq" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
+            <div class="kpi-box bg-white dark:bg-slate-800 p-3 rounded-lg shadow-md text-center"><h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">CNAE</h4><input id="kpiCNAE" type="text" class="kpi-input text-lg font-bold" value="—" /></div>
         </div>
 
         <div class="card bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md">
@@ -134,13 +149,12 @@
     /**
      * @file Extrator NFS-e - Versão Final
      * @author HAlexandre
-     * @version 2.5.0
+     * @version 2.7.2
      */
 
     // --- Módulo de Estado da Aplicação ---
     const AppState = {
       manualToggles: { simples: null, condominio: null },
-      lastExtractedData: null,
       hasManuallyEditedActivity: false,
     };
 
@@ -149,8 +163,8 @@
       fmtBRL: n => (n == null || isNaN(n)) ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
       normalize: str => (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase(),
       parseCurrency(raw) {
-        if (!raw) return null;
-        let s = String(raw).replace(/R\$\s?/gi, '').replace(/\s/g, '');
+        if (typeof raw !== 'string' || raw.trim() === '—' || raw.trim() === '') return null;
+        let s = raw.replace(/R\$\s?/gi, '').replace(/\s/g, '').replace(/%/g, '');
         const hasComma = /,\d{2}$/.test(s);
         s = hasComma ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
         const num = Number(s.replace(/[^0-9.\-]/g, ''));
@@ -191,24 +205,19 @@
       setStatus(message) { this.dom.ocrStatus.innerHTML = message; },
 
       renderKPIs(data) {
-        Object.keys(this.dom.kpiElements).forEach(key => {
-            this.dom.kpiElements[key].textContent = '—';
-        });
-
-        if (data) {
-            this.dom.kpiElements.kpiTotal.textContent = Utils.fmtBRL(data.valores.valor_total);
-            this.dom.kpiElements.kpiLiquido.textContent = Utils.fmtBRL(data.valores.valor_liquido);
-            this.dom.kpiElements.kpiISS.textContent = Utils.fmtBRL(data.valores.retencoes.iss);
-            this.dom.kpiElements.kpiIRRF.textContent = Utils.fmtBRL(data.valores.retencoes.irrf);
-            this.dom.kpiElements.kpiCSLL.textContent = Utils.fmtBRL(data.valores.retencoes.csll);
-            this.dom.kpiElements.kpiPIS.textContent = Utils.fmtBRL(data.valores.retencoes.pis);
-            this.dom.kpiElements.kpiCOFINS.textContent = Utils.fmtBRL(data.valores.retencoes.cofins);
-            this.dom.kpiElements.kpiINSS.textContent = Utils.fmtBRL(data.valores.retencoes.inss);
-            this.dom.kpiElements.kpiISSDev.textContent = Utils.fmtBRL(data.apuracao_iss.valor_iss);
-            this.dom.kpiElements.kpiBase.textContent = Utils.fmtBRL(data.apuracao_iss.base_calculo);
-            this.dom.kpiElements.kpiAliq.textContent = data.apuracao_iss.aliquota_percentual != null ? `${data.apuracao_iss.aliquota_percentual}%` : '—';
-            this.dom.kpiElements.kpiCNAE.textContent = data.cnae || '—';
-        }
+        const { kpiElements } = this.dom;
+        kpiElements.kpiTotal.value = Utils.fmtBRL(data.valores.valor_total);
+        kpiElements.kpiLiquido.value = Utils.fmtBRL(data.valores.valor_liquido);
+        kpiElements.kpiISS.value = Utils.fmtBRL(data.valores.retencoes.iss);
+        kpiElements.kpiIRRF.value = Utils.fmtBRL(data.valores.retencoes.irrf);
+        kpiElements.kpiCSLL.value = Utils.fmtBRL(data.valores.retencoes.csll);
+        kpiElements.kpiPIS.value = Utils.fmtBRL(data.valores.retencoes.pis);
+        kpiElements.kpiCOFINS.value = Utils.fmtBRL(data.valores.retencoes.cofins);
+        kpiElements.kpiINSS.value = Utils.fmtBRL(data.valores.retencoes.inss);
+        kpiElements.kpiISSDev.value = Utils.fmtBRL(data.apuracao_iss.valor_iss);
+        kpiElements.kpiBase.value = Utils.fmtBRL(data.apuracao_iss.base_calculo);
+        kpiElements.kpiAliq.value = data.apuracao_iss.aliquota_percentual != null ? `${data.apuracao_iss.aliquota_percentual}%` : '—';
+        kpiElements.kpiCNAE.value = data.cnae || '—';
       },
 
       updateActivityFields(data) {
@@ -252,7 +261,7 @@
           const processed = await this.preprocessImage(file);
           UI.setStatus('<progress id="p" value="0" max="1" class="w-full"></progress> Reconhecendo...');
           const { data: { text } } = await Tesseract.recognize(processed, 'por+eng', {
-            logger: m => { if (m.status === 'recognizing text') document.getElementById('p').value = m.progress; }
+            logger: m => { if (m.status === 'recognizing text' && document.getElementById('p')) document.getElementById('p').value = m.progress; }
           });
           UI.dom.input.value = text;
           UI.setStatus('Texto extraído com sucesso!');
@@ -289,72 +298,92 @@
     // --- Módulo de Extração de Dados ---
     const Extractor = {
       extractAll(text) {
-        const total = /VALOR\s+TOTAL\s+DO\s+SERVI[ÇC]O\s*=\s*R\$\s*([\d.,]+)/i.exec(text);
-        const liquidoLine = (text || '').split(/\r?\n/).find(l => /valor\s+l[ií]quido(\s+a\s+receber)?/i.test(l));
-        const liquido = liquidoLine ? (liquidoLine.match(/(?:R\$\s*)?[\d.,]+/) || [])[0] : null;
+        const total = /Valor dos Servi[çc]os\s+R\$\s*([\d.,]+)/i.exec(text);
+        const liquido = /Valor L[íi]quido\s+R\$\s*([\d.,]+)/i.exec(text);
         const iss = this.extractISSFields(text);
         const cnae = this.extractCNAE(text);
         const atv = this.extractAtividade(text);
         const ret = this.extractRetencoes(text);
         const total_ret = Object.values(ret).filter(v => typeof v === 'number').reduce((a, b) => a + b, 0);
-        let liquidoNum = liquido ? Utils.parseCurrency(liquido) : null;
+        
+        let liquidoNum = liquido ? Utils.parseCurrency(liquido[1]) : null;
         if (liquidoNum == null && total) {
           liquidoNum = Number((Utils.parseCurrency(total[1]) - (total_ret || 0)).toFixed(2));
         }
+
         return {
           cnae, atividade: atv,
-          valores: { valor_total: total ? Utils.parseCurrency(total[1]) : null, valor_liquido: liquidoNum, retencoes: { ...ret, total_retencoes: Number.isFinite(total_ret) ? Number(total_ret.toFixed(2)) : null } },
+          valores: { 
+            valor_total: total ? Utils.parseCurrency(total[1]) : null, 
+            valor_liquido: liquidoNum, 
+            retencoes: { ...ret, total_retencoes: Number.isFinite(total_ret) ? Number(total_ret.toFixed(2)) : null } 
+          },
           apuracao_iss: iss
         };
       },
       extractISSFields(t) {
         const text = (t || '').replace(/\s+/g, ' ');
-        const base = /Base\s+de\s+C[aá]lculo\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
-        const aliq1 = /Al[ií]quota\s*\(%\)\s*([\d.,]+)/i.exec(text) || /Al[ií]quota[^\d%]*([\d.,]+)\s*%/i.exec(text);
-        const valor = /Valor\s+do\s+ISS\s*\(R\$\)\s*([\d.,]+)/i.exec(text);
-        return { base_calculo: base ? Utils.parseCurrency(base[1]) : null, aliquota_percentual: aliq1 ? Utils.parseCurrency(aliq1[1]) : null, valor_iss: valor ? Utils.parseCurrency(valor[1]) : null };
+        const base = /Base de C[áa]lculo\s+R\$\s*([\d.,]+)/i.exec(text);
+        const aliq = /Al[íi]quota\s+%\s*([\d.,]+)/i.exec(text);
+        const valor = /Valor do Imposto \(ISSQN\)\s+R\$\s*([\d.,]+)/i.exec(text);
+        return { 
+            base_calculo: base ? Utils.parseCurrency(base[1]) : null, 
+            aliquota_percentual: aliq ? Utils.parseCurrency(aliq[1]) : null, 
+            valor_iss: valor ? Utils.parseCurrency(valor[1]) : null 
+        };
       },
       extractCNAE(text) {
         const m = /(cnae\s*[:#-]?\s*)?(\d{2}\.\d{2}-\d\/?\d{2}|\d{7}\/\d{2})/i.exec(text);
         return m ? m[2].replace(/\s+/g, '').trim() : null;
       },
       extractAtividade(text) {
-        const lines = (text || '').split(/\r?\n/);
-        for (const l of lines) {
-          if (/c[oó]digo\s+do\s+servi[cç]o/i.test(l) || /servi[cç]o\s*:/i.test(l)) {
-            return this.splitServiceLine(l.replace(/^.*?[:\-]\s*/, '').trim());
-          }
-        }
-        const m = /(\d{4,5})\s*[-–—]\s*([^\n]{3,})/.exec(text);
-        return m ? { code: m[1], desc: m[2].trim() } : { code: '', desc: '' };
-      },
-      splitServiceLine(s) {
-        const m = s.match(/(\d{4,5})\s*[-–—]\s*(.+)/);
-        if (m) return { code: m[1], desc: m[2].trim() };
-        const m2 = s.match(/\b(\d{4,5})\b/);
-        return m2 ? { code: m2[1], desc: '' } : { code: '', desc: s.trim() };
+        const m = /Atividade\s+(\d+)\s+([^\n]+)/i.exec(text);
+        return m ? { code: m[1].trim(), desc: m[2].trim() } : { code: '', desc: '' };
       },
       extractRetencoes(text) {
-        const L = (text || '').split(/\r?\n/);
         const out = { iss: null, irrf: null, csll: null, pis: null, cofins: null, inss: null };
-        const map = [['iss', 'iss retid'], ['irrf', 'irrf'], ['csll', 'csll'], ['pis', 'pis'], ['cofins', 'cofins'], ['inss', 'inss']];
-        const rxMoney = /(?:R\$\s*)?(-?\d{1,3}(?:[.\s]\d{3})*(?:,\d{2})|-?\d+(?:[.,]\d{2})?)/;
-        for (const line of L) {
-          const n = Utils.normalize(line);
-          for (const [k, needle] of map) {
-            if (n.includes(needle)) {
-              const m = line.match(rxMoney);
-              if (m) out[k] = Utils.parseCurrency(m[0]);
-            }
-          }
-        }
+        const findValue = (regex) => {
+            const match = text.match(regex);
+            return match ? Utils.parseCurrency(match[1]) : null;
+        };
+        out.pis = findValue(/PIS\s+R\$?\s*([\d.,]+)/i);
+        out.cofins = findValue(/COFINS\s+R\$?\s*([\d.,]+)/i);
+        out.inss = findValue(/INSS\s+R\$?\s*([\d.,]+)/i);
+        out.irrf = findValue(/IR\s+R\$?\s*([\d.,]+)/i);
+        out.csll = findValue(/CSLL\s+R\$?\s*([\d.,]+)/i);
+        out.iss = findValue(/ISSQN Retido pelo Tomador\s+R\$?\s*([\d.,]+)/i);
         return out;
       }
     };
 
     // --- Módulo de Construção do Prompt ---
     const PromptBuilder = {
-      build(d) {
+      build() {
+        const { dom } = UI;
+        const { kpiElements } = dom;
+
+        // Constrói o objeto de dados a partir dos valores atuais da UI
+        const d = {
+            valores: {
+                valor_total: Utils.parseCurrency(kpiElements.kpiTotal.value),
+                valor_liquido: Utils.parseCurrency(kpiElements.kpiLiquido.value),
+                retencoes: {
+                    iss: Utils.parseCurrency(kpiElements.kpiISS.value),
+                    irrf: Utils.parseCurrency(kpiElements.kpiIRRF.value),
+                    csll: Utils.parseCurrency(kpiElements.kpiCSLL.value),
+                    pis: Utils.parseCurrency(kpiElements.kpiPIS.value),
+                    cofins: Utils.parseCurrency(kpiElements.kpiCOFINS.value),
+                    inss: Utils.parseCurrency(kpiElements.kpiINSS.value),
+                }
+            },
+            apuracao_iss: {
+                valor_iss: Utils.parseCurrency(kpiElements.kpiISSDev.value),
+                base_calculo: Utils.parseCurrency(kpiElements.kpiBase.value),
+                aliquota_percentual: Utils.parseCurrency(kpiElements.kpiAliq.value),
+            },
+            cnae: kpiElements.kpiCNAE.value === '—' ? null : kpiElements.kpiCNAE.value,
+        };
+
         const ret = d.valores.retencoes;
         const items = [];
         if (ret.iss) items.push(`- ISS Retido: ${Utils.fmtBRL(ret.iss)}`);
@@ -373,16 +402,16 @@
         const base = d.apuracao_iss?.base_calculo;
         const issStr = issDev != null ? `Valor do ISS devido: ${Utils.fmtBRL(issDev)} (Alíquota: ${aliq != null ? `${aliq}%` : 'N/A'} sobre Base de Cálculo de ${base != null ? Utils.fmtBRL(base) : 'N/A'})` : 'Não informado';
 
-        const code = (UI.dom.srvCode.value || d.atividade.code || '').trim();
-        const desc = (UI.dom.srvDesc.value || d.atividade.desc || '').trim();
+        const code = (dom.srvCode.value || '').trim();
+        const desc = (dom.srvDesc.value || '').trim();
         const atividadeStr = (code || desc) ? `- Código do Serviço: ${code || '[não informado]'}\n- Descrição: ${desc || '[não informada]'}` : '- Atividade não informada';
 
         const cnaeStr = d.cnae ? d.cnae : 'Não informado';
-        const obs = (UI.dom.obs.value || '').trim();
+        const obs = (dom.obs.value || '').trim();
         const obsStr = obs ? obs : 'Nenhuma.';
         
-        const prestadorLocal = (UI.dom.prestadorLocal.value || '').trim();
-        const tomadorLocal = (UI.dom.tomadorLocal.value || '').trim();
+        const prestadorLocal = (dom.prestadorLocal.value || '').trim();
+        const tomadorLocal = (dom.tomadorLocal.value || '').trim();
 
         return `
 # Análise Tributária de NFS-e
@@ -454,6 +483,23 @@ Por fim, gere uma tabela em formato Markdown com o seguinte resumo financeiro, p
     const Events = {
       setup() {
         const { dom } = UI;
+        
+        const updatePromptOnInput = () => {
+            UI.updatePrompt(PromptBuilder.build());
+        };
+
+        const handleKpiBlur = (e) => {
+            const input = e.target;
+            const numericValue = Utils.parseCurrency(input.value);
+            if (input.id === 'kpiAliq') {
+                input.value = numericValue != null ? `${numericValue}%` : '—';
+            } else if (input.id === 'kpiCNAE') {
+                input.value = input.value.trim() || '—';
+            } else {
+                input.value = Utils.fmtBRL(numericValue);
+            }
+        };
+
         dom.dropZone.addEventListener('click', () => dom.fileInput.click());
         dom.dropZone.addEventListener('dragover', e => { e.preventDefault(); dom.dropZone.classList.add('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20'); });
         dom.dropZone.addEventListener('dragleave', () => dom.dropZone.classList.remove('border-indigo-500', 'bg-indigo-50', 'dark:bg-indigo-900/20'));
@@ -475,31 +521,50 @@ Por fim, gere uma tabela em formato Markdown com o seguinte resumo financeiro, p
 
         dom.btnExtrair.addEventListener('click', () => {
           AppState.hasManuallyEditedActivity = false;
-          AppState.lastExtractedData = Extractor.extractAll(dom.input.value || '');
-          UI.renderKPIs(AppState.lastExtractedData);
-          UI.updateActivityFields(AppState.lastExtractedData);
-          UI.updatePrompt(PromptBuilder.build(AppState.lastExtractedData));
+          const extractedData = Extractor.extractAll(dom.input.value || '');
+          UI.renderKPIs(extractedData);
+          UI.updateActivityFields(extractedData);
+          UI.updatePrompt(PromptBuilder.build());
         });
 
         dom.btnExemplo.addEventListener('click', () => {
-          const exemplo = `VALOR TOTAL DO SERVIÇO = R$ 52,01\nINSS (R$) -\t IRRF (R$) -\t CSLL (R$) -\t COFINS (R$) -\t PIS/PASEP (R$) -\nCódigo do Serviço 06533 - Planos de atendimento e assistência médico-veterinária.\nValor Total das Deduções (R$) 0,00  Base de Cálculo (R$) 52,01  Alíquota (%) 2,00  Valor do ISS (R$) 1,04  Crédito (R$) 0,00\nCNAE 86.90-9/99`;
+          const exemplo = `
+            Atividade 711970100
+            Servicos de cartografia, topografia e geodesia
+            Retenções Federais   PIS R$ 35,75   COFINS R$ 165,00   INSS R$ 0,00   IR R$ 82,50   CSLL R$ 55,00
+            Demonstrativo
+            Valor dos Serviços R$ 5.500,00
+            (-) Retenções Federais R$ 338,25
+            (-) ISSQN Retido pelo Tomador R$ 0,00
+            (=) Valor Líquido R$ 5.161,75
+            Cálculo do Imposto
+            Valor dos Serviços R$ 5.500,00
+            (=) Base de Cálculo R$ 5.500,00
+            (x) Alíquota % 5,00
+            (=) Valor do Imposto (ISSQN) R$ 275,00
+            Valor da Nota R$ 5.500,00
+          `;
           dom.input.value = exemplo;
           dom.btnExtrair.click();
         });
 
-        dom.btnCopiarPrompt.addEventListener('click', async () => {
-          try {
-            const tempTextarea = document.createElement('textarea');
-            tempTextarea.value = dom.output.textContent;
-            document.body.appendChild(tempTextarea);
-            tempTextarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempTextarea);
-            
-            const b = dom.btnCopiarPrompt;
-            b.textContent = 'Copiado!';
-            setTimeout(() => b.textContent = 'Copiar', 1200);
-          } catch (e) { console.error(e); }
+        dom.btnCopiarPrompt.addEventListener('click', () => {
+            try {
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = dom.output.textContent;
+                tempTextarea.style.position = 'absolute';
+                tempTextarea.style.left = '-9999px';
+                document.body.appendChild(tempTextarea);
+                tempTextarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempTextarea);
+                
+                const b = dom.btnCopiarPrompt;
+                b.textContent = 'Copiado!';
+                setTimeout(() => b.textContent = 'Copiar', 1200);
+            } catch (err) {
+                console.error('Falha ao copiar o texto:', err);
+            }
         });
 
         dom.btnBaixarPrompt.addEventListener('click', () => {
@@ -517,11 +582,15 @@ Por fim, gere uma tabela em formato Markdown com o seguinte resumo financeiro, p
             AppState.manualToggles[key] = (value === 'true') ? true : (value === 'false') ? false : null;
             btn.parentElement.querySelectorAll('.btn-choice').forEach(b => b.classList.remove('active', 'sim', 'nao', 'ind'));
             btn.classList.add('active', value === 'true' ? 'sim' : value === 'false' ? 'nao' : 'ind');
-            if (AppState.lastExtractedData) UI.updatePrompt(PromptBuilder.build(AppState.lastExtractedData));
+            updatePromptOnInput();
           });
         });
-
-        const updatePromptOnInput = () => { if (AppState.lastExtractedData) UI.updatePrompt(PromptBuilder.build(AppState.lastExtractedData)); };
+        
+        // Adiciona listeners para todos os campos editáveis
+        Object.values(dom.kpiElements).forEach(input => {
+            input.addEventListener('input', updatePromptOnInput);
+            input.addEventListener('blur', handleKpiBlur);
+        });
         dom.srvCode.addEventListener('input', () => { AppState.hasManuallyEditedActivity = true; updatePromptOnInput(); });
         dom.srvDesc.addEventListener('input', () => { AppState.hasManuallyEditedActivity = true; updatePromptOnInput(); });
         dom.obs.addEventListener('input', updatePromptOnInput);
